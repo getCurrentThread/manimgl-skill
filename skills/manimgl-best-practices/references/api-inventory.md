@@ -1,13 +1,13 @@
-# 포크 클래스 목록 (Scene / Animation / Mobject, `from manimlib import *` 기준)
+# Fork class list (Scene / Animation / Mobject, based on `from manimlib import *`)
 
-- 생성 방법: 포크 @455a4201이 설치된 환경에서 `from manimlib import *`로 들어오는 클래스를 기반 클래스별로 나누어 자동 생성했다. 손으로 옮겨 적은 목록이 아니다.
-- 범위: Scene, Animation, Mobject의 하위 클래스만 적었다. 함수(`always_redraw`), rate function(`smooth`), 상수(`UP`, `BLUE`, `DEG`), 그 밖의 클래스(`Camera`, `CoordinateSystem`)는 목록에 없어도 star-import로 들어온다.
-- 여기 없는 Scene/Animation/Mobject 클래스는 star-import로 쓸 수 없다. 예: `OldTex`, `OldTexText`는 export되지 않는다 (정의는 F:manimlib/mobject/svg/old_tex_mobject.py:181,317에 있음).
-- 시그니처는 설치된 소스에서 직접 확인한다.
+- How it was made: auto-generated in an environment with fork @455a4201 installed, by grouping the classes that `from manimlib import *` brings in by base class. It is not a hand-copied list.
+- Scope: only subclasses of Scene, Animation and Mobject are listed. Functions (`always_redraw`), rate functions (`smooth`), constants (`UP`, `BLUE`, `DEG`) and other classes (`Camera`, `CoordinateSystem`) come in through star-import even though they are not in the list.
+- Scene/Animation/Mobject classes not listed here cannot be used through star-import. Example: `OldTex` and `OldTexText` are not exported (defined at F:manimlib/mobject/svg/old_tex_mobject.py:181,317).
+- Check signatures directly in the installed source.
   ```
   uv run python -c "import inspect, manimlib; print(inspect.signature(manimlib.Axes.get_graph))"
   ```
-- 이 문서는 클래스 목록만 둔다. `CameraFrame` 메서드 시그니처는 [korean-tex-3d.md](korean-tex-3d.md) §C2, 업데이터 주의는 [SKILL.md](../SKILL.md) §10에 있다.
+- This document holds only the class list. `CameraFrame` method signatures are in [korean-tex-3d.md](korean-tex-3d.md) §C2, and updater cautions are in [SKILL.md](../SKILL.md) §10.
 
 ## Scene (3)
 

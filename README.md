@@ -7,7 +7,7 @@ A Claude Code plugin that targets **only** the [CodingVillainKor/manimgl](https:
 - Target commit: fork `455a4201669cd68ff5e522c7fcd1a7ac31aadff0` (2026-10-11)
 - Not for PyPI `manimgl` or ManimCE (`manim`).
 - Every rule is based on the fork source, actual usage patterns in manimgl-imcommit, and real render results. Evidence is cited as `file:line`.
-- The skill documents (`SKILL.md`, `references/`, templates) are written in Korean.
+- The skill documents (`SKILL.md`, `references/`, templates) are written in English. Korean sample strings in them are intentional.
 
 ## Contents
 
@@ -159,7 +159,7 @@ Test environment:
   - After `Scene.clear()`, `self.frame` is removed from the scene and ambient rotation stops; `self.add(self.frame)` brings it back.
   - The default run_time 2 of `TransformMatchingStrings`/`Tex`, the grey fill from `Square().set_opacity(0.2)`, the origin position of an asymmetric `ThreeDAxes`, `Arrow.set_perpendicular_to_camera`
   - Unknown config keys: `scene.invert_zoom_scroll`, `camera.bundle_draws`, `camera.draw_together`, `file_writer.crf` each fail with a TypeError in their section's constructor.
-- **CLI (`references/cli-and-output.md`)**: verified by running: the output file and resolution/fps per flag (ffprobe), the hang with `-s`/`-ql`/`-a` alone, the hang with `-p -w` (checked with `timeout`), the scene-selection prompt and exit 1 on stdin EOF, a failed render leaving the previous mp4 in place, the config merge order, and cache locations. Rows marked `소스 근거` (source evidence) in the tables were not run.
+- **CLI (`references/cli-and-output.md`)**: verified by running: the output file and resolution/fps per flag (ffprobe), the hang with `-s`/`-ql`/`-a` alone, the hang with `-p -w` (checked with `timeout`), the scene-selection prompt and exit 1 on stdin EOF, a failed render leaving the previous mp4 in place, the config merge order, and cache locations. Rows marked `source evidence` in the tables were not run.
 - **Korean, Tex, 3D (`references/korean-tex-3d.md`)**: verified by render or probe: Korean glyph counts and sub-selection, `MarkupText` ignoring color, the Text vs Tex size difference (1.37×) and its cause (the calibration font), `Tex`/`TexText`/`Title`/`BulletedList` with kotex, when xcolor is needed, the list of classes that need LaTeX (checked with TeX removed from PATH), the depth test pitfall, and the billboard formula.
 - **PyPI 1.7.2 comparison**: installed PyPI 1.7.2 and the fork in separate new venvs and compared `hasattr`, `--help`, sizes, and `--fps` parsing. PyPI 1.7.2's `manimlib/` is file-for-file identical to tag v1.7.2.
 - **Upstream APIs missing from the fork (`references/fork-diff.md`)**: checked only by constructing and calling them in the fork env (no render).
@@ -190,7 +190,7 @@ Test environment:
 - **Plugin**
   - `claude plugin validate ./manimgl-skill --strict` (Claude Code 2.1.301) exits 0. A passing run prints only the marketplace.json line, but it also checks plugin.json and the frontmatter in skills/, agents/ and commands/, and prints only files with problems.
   - Checked by breaking copies one at a time. A plugin.json JSON error and a deleted SKILL.md `description` exit 1. A deleted agent `name` and a marketplace.json `source` pointing to a missing folder exit 0, so this command does not catch them.
-  - It catches only some frontmatter YAML errors. When parsing fails, it wraps values containing special characters (`>`, `#`, colon+space, etc.) in quotes and parses once more, exiting 1 only if that also fails. So an unclosed quote in an LF file (`argument-hint: "<주제>`) exits 0, while a value without special characters, or a CRLF file, exits 1.
+  - It catches only some frontmatter YAML errors. When parsing fails, it wraps values containing special characters (`>`, `#`, colon+space, etc.) in quotes and parses once more, exiting 1 only if that also fails. So an unclosed quote in an LF file (`argument-hint: "<topic>`) exits 0, while a value without special characters, or a CRLF file, exits 1.
   - Install: `claude plugin marketplace add ./manimgl-skill` and `claude plugin install manimgl-skill@manimgl-skill` succeeded, and `claude plugin list` shows 0.1.0 enabled.
   - A new session (`claude -p`) recognized:
     - command `manimgl-skill:scene`
@@ -216,4 +216,4 @@ Test environment:
 - The exit code of Ctrl-C during a render.
 - `--fps` being fixed at 30 in window mode (no `-w`), and `dt` updaters getting the whole run_time at once under `-s`.
 - `always_sort_to_camera` on translucent surfaces.
-- The remaining items marked `소스 근거` (source evidence) in the `references/` docs.
+- The remaining items marked `source evidence` in the `references/` docs.

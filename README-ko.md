@@ -14,7 +14,7 @@
 |---|---|
 | `skills/manimgl-best-practices/` | 작성 규칙(SKILL.md), 근거 문서(`references/`), 렌더 확인된 예제(`examples/*.py`) |
 | `skills/manimgl-workflow/` | Plan → Code & Render → Iterate 워크플로, `templates/scenes.md`, 로컬 뷰어 `tools/` |
-| `commands/scene.md` | `/manimgl-skill:scene <주제>`로 워크플로를 시작한다 |
+| `commands/scene.md` | `/manimgl-skill:scene <topic>`로 워크플로를 시작한다 |
 | `agents/scene-reviewer.md` | 렌더된 프레임을 읽기 전용으로 검토하는 에이전트 |
 | `scripts/setup.sh` | uv 프로젝트에 포크를 커밋 고정으로 설치하고 검증한다. 이미 다른 커밋의 포크가 있으면 커밋은 바꾸지 않고 경고한다 (빠진 `trimesh`/`pywavefront`만 추가) |
 | `scripts/check_examples.sh` | 예제 전부를 `-sw`와 `-w -l`로 렌더해 확인한다 |
@@ -158,7 +158,7 @@ Yusuke710/manim-skill에서 참고한 것:
   - `Scene.clear()` 뒤에는 `self.frame`이 빠져 ambient rotation이 멈추고, `self.add(self.frame)`로 되살아난다.
   - `TransformMatchingStrings`/`Tex`의 기본 run_time 2, `Square().set_opacity(0.2)`의 회색 바탕, 비대칭 `ThreeDAxes`의 원점 위치, `Arrow.set_perpendicular_to_camera`
   - 모르는 설정 키: `scene.invert_zoom_scroll`, `camera.bundle_draws`, `camera.draw_together`, `file_writer.crf`가 각 섹션 생성자에서 TypeError로 실패한다.
-- **CLI (`references/cli-and-output.md`)**: 플래그별 출력 파일과 해상도/fps(ffprobe), `-s`/`-ql`/`-a` 단독의 멈춤, `-p -w`의 멈춤(`timeout`으로 확인), 씬 선택 프롬프트와 stdin EOF의 exit 1, 실패한 렌더가 이전 mp4를 남기는 것, 설정 병합 순서, 캐시 위치를 실행해 확인했다. 표에 `소스 근거`로 적은 것은 실행하지 않았다.
+- **CLI (`references/cli-and-output.md`)**: 플래그별 출력 파일과 해상도/fps(ffprobe), `-s`/`-ql`/`-a` 단독의 멈춤, `-p -w`의 멈춤(`timeout`으로 확인), 씬 선택 프롬프트와 stdin EOF의 exit 1, 실패한 렌더가 이전 mp4를 남기는 것, 설정 병합 순서, 캐시 위치를 실행해 확인했다. 표에 `source evidence`로 적은 것은 실행하지 않았다.
 - **한글, Tex, 3D (`references/korean-tex-3d.md`)**: 한글 글리프 수와 부분 선택, `MarkupText` 색이 무시되는 것, Text와 Tex의 크기 차(1.37배)와 원인(보정 글꼴), kotex 조합의 `Tex`/`TexText`/`Title`/`BulletedList`, xcolor가 필요한 경우, LaTeX가 필요한 클래스 목록(TeX를 PATH에서 빼고 확인), depth test 함정, 빌보드 공식을 렌더나 프로브로 확인했다.
 - **PyPI 1.7.2 비교**: PyPI 1.7.2와 포크를 각각 새 venv에 설치해 `hasattr`, `--help`, 크기, `--fps` 파싱을 비교했다. PyPI 1.7.2의 `manimlib/`은 태그 v1.7.2와 파일 단위로 같다.
 - **포크에 없는 upstream API (`references/fork-diff.md`)**: 포크 환경에서 생성·호출만 해서 확인했다 (렌더 없음).
@@ -189,7 +189,7 @@ Yusuke710/manim-skill에서 참고한 것:
 - **플러그인**
   - `claude plugin validate ./manimgl-skill --strict`(Claude Code 2.1.301)가 exit 0이다. 통과하면 marketplace.json 줄만 나오지만 plugin.json과 skills/, agents/, commands/의 프런트매터도 검사하고, 문제가 있는 파일만 출력한다.
   - 사본을 하나씩 망가뜨려 확인했다. plugin.json JSON 오류와 SKILL.md `description` 삭제는 exit 1이다. 에이전트 `name` 삭제와 marketplace.json `source`가 없는 폴더를 가리키는 경우는 exit 0이라 이 명령으로 잡지 못한다.
-  - 프런트매터 YAML 오류는 일부만 잡는다. 파싱이 실패하면 특수 문자(`>`, `#`, 콜론+공백 등)가 든 값을 따옴표로 감싸 한 번 더 파싱하고, 그래도 실패할 때만 exit 1이다. 그래서 LF 파일의 닫지 않은 따옴표(`argument-hint: "<주제>`)는 exit 0이고, 값에 특수 문자가 없거나 CRLF 파일이면 exit 1이다.
+  - 프런트매터 YAML 오류는 일부만 잡는다. 파싱이 실패하면 특수 문자(`>`, `#`, 콜론+공백 등)가 든 값을 따옴표로 감싸 한 번 더 파싱하고, 그래도 실패할 때만 exit 1이다. 그래서 LF 파일의 닫지 않은 따옴표(`argument-hint: "<topic>`)는 exit 0이고, 값에 특수 문자가 없거나 CRLF 파일이면 exit 1이다.
   - 설치: `claude plugin marketplace add ./manimgl-skill`과 `claude plugin install manimgl-skill@manimgl-skill`이 성공했고, `claude plugin list`에 0.1.0 enabled로 나온다.
   - 새 세션(`claude -p`)에서 다음이 인식됐다.
     - 명령 `manimgl-skill:scene`
@@ -215,4 +215,4 @@ Yusuke710/manim-skill에서 참고한 것:
 - 렌더 중 Ctrl-C의 종료 코드.
 - 창 모드(`-w` 없음)에서 `--fps`가 30으로 고정되는 것과 `-s`에서 `dt` 업데이터가 run_time 전체를 한 번에 받는 것.
 - 반투명 곡면의 `always_sort_to_camera`.
-- `references/` 문서에서 `소스 근거`라고 표시한 나머지 항목.
+- `references/` 문서에서 `source evidence`라고 표시한 나머지 항목.

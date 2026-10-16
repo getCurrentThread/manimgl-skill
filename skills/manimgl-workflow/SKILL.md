@@ -3,84 +3,84 @@ name: manimgl-workflow
 description: End-to-end workflow for making an explainer video with the CodingVillainKor/manimgl fork - Plan (scenes.md, user approval) → Code & Render (src/<video>/main.py, last-frame check with -sw, mid-animation frame sheets, then -w per scene) → Iterate (concat, local viewer, timestamped feedback, re-render only the affected scenes). Use when the user asks to make or animate a video/scene with manimgl, or runs /manimgl-skill:scene.
 ---
 
-# manimgl 영상 워크플로: Plan → Code & Render → Iterate
+# manimgl video workflow: Plan → Code & Render → Iterate
 
-코드를 쓰기 전에 **manimgl-best-practices** 스킬을 따른다. 포크 API, 색 함정, 한글, CLI 규칙이 거기 있다.
+Before writing code, follow the **manimgl-best-practices** skill. Fork API, color pitfalls, Korean text, and CLI rules are there.
 
-## 계약
+## Contract
 
-- **결과물**: `src/<영상>/main.py`, 씬별 `videos/<Scene>.mp4`, `full.mp4`, 뷰어 URL을 넘긴다.
-- **막혔을 때**: 실패한 명령과 에러의 마지막 줄을 그대로 보고한다.
-- **승인 전 코딩 금지**: 사용자가 Plan을 승인하기 전에는 `main.py`를 쓰지 않는다.
-- **커밋 기준**: 이 워크플로가 맞춘 것은 포크 @455a4201 하나다. setup.sh는 포크를 새로 추가할 때 이 커밋으로 고정하고, 이미 다른 커밋이면 커밋은 바꾸지 않고 경고한다 (빠진 `trimesh`/`pywavefront`만 추가).
+- **Deliverables**: hand over `src/<video>/main.py`, per-scene `videos/<Scene>.mp4`, `full.mp4`, and the viewer URL.
+- **When blocked**: report the failed command and the last line of the error as-is.
+- **No coding before approval**: do not write `main.py` until the user approves the Plan.
+- **Commit baseline**: this workflow was tuned against exactly one fork commit, @455a4201. When setup.sh adds the fork fresh, it pins to this commit. If the fork is already on another commit, it does not change the commit and only warns (it only adds the missing `trimesh`/`pywavefront`).
 
-## 0. 준비 (프로젝트당 한 번)
+## 0. Setup (once per project)
 
-- 프로젝트는 `pyproject.toml`이 있는 uv 프로젝트 루트다. 포크가 아직 없으면 설치한다.
+- The project is a uv project root containing `pyproject.toml`. If the fork is not there yet, install it.
   ```bash
-  bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh <프로젝트 루트>                  # raenimgl도 쓰려면 --with-raenimgl
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh <project root>                  # add --with-raenimgl to use raenimgl too
   ```
-- setup.sh 결과별 처리:
-  - **exit 2 (PyPI `manimgl`과 충돌)**: 출력된 해결 명령을 사용자에게 보여 주고, 승인을 받은 뒤 실행한다.
-  - **exit 1 (`[fail]`)**: 렌더할 수 없다. 출력된 `[fail]` 줄을 그대로 보고한다.
-  - **LaTeX / cm-super 경고**: Tex 없이 계획하거나(Text, 도형, 숫자만 사용) 사용자에게 설치를 요청한다.
-  - **ffprobe 경고**: 3단계 뷰어가 시작하지 못한다. ffmpeg와 함께 ffprobe를 설치해 달라고 요청한다.
-  - **Noto Sans KR 경고**: 한글 Text가 □로 나올 수 있다. 폰트 설치를 요청하거나 `font=`를 지정한다.
-  - **OpenGL 경고**: `-w` 렌더가 실패할 수 있다. 경고 줄을 그대로 보고한다.
-- 영상 폴더는 `<프로젝트>/src/<영상명>/`이다. 영상명은 짧은 영문으로 짓는다. **이후 명령은 모두 이 폴더에서 실행한다.** 출력이 cwd 아래 `videos/`에 쌓이기 때문이다.
+- Handling setup.sh results:
+  - **exit 2 (conflict with PyPI `manimgl`)**: show the printed fix command to the user, get approval, then run it.
+  - **exit 1 (`[fail]`)**: rendering is impossible. Report the printed `[fail]` line as-is.
+  - **LaTeX / cm-super warning**: plan without Tex (use only Text, shapes, numbers) or ask the user to install it.
+  - **ffprobe warning**: the step 3 viewer cannot start. Ask the user to install ffprobe along with ffmpeg.
+  - **Noto Sans KR warning**: Korean Text may render as □. Ask the user to install the font or set `font=`.
+  - **OpenGL warning**: `-w` rendering may fail. Report the warning line as-is.
+- The video folder is `<project>/src/<video name>/`. Give the video a short English name. **Run all later commands from this folder.** Output piles up under `videos/` in the cwd.
 
 ## 1. Plan
 
-1. `${CLAUDE_SKILL_DIR}/templates/scenes.md` 형식으로 scenes.md 내용을 채운다.
-   - **청중**: 누가 보는지, 무엇을 이미 아는지
-   - **핵심 개념**: 영상이 끝나면 남을 한 문장
-   - **씬 목록**: 서사 순서. 씬마다 클래스명(PascalCase), 15~30초, `##` 블록이 될 내레이션/의도 줄, 화면 요소, 끝 상태, 다음 씬으로의 연결
-2. scenes.md 내용을 보여 주고 **명시적 승인**을 받는다. 수정 요청이 오면 반영하고 다시 승인을 받는다.
-   - plan mode에서는 파일을 쓸 수 없다. scenes.md 내용 전체를 계획으로 제시하고, 승인되어 plan mode를 나온 뒤에 `src/<영상>/scenes.md`로 쓴다.
-   - plan mode가 아니면 `src/<영상>/scenes.md`를 먼저 쓰고 보여 준다.
-   - 승인되면 scenes.md의 `## 승인` 칸에 표시한다.
+1. Fill in the scenes.md content following the `${CLAUDE_SKILL_DIR}/templates/scenes.md` format.
+   - **Audience**: who watches, and what they already know
+   - **Core idea**: the one sentence that remains when the video ends
+   - **Scene list**: in narrative order. For each scene: class name (PascalCase), 15~30 seconds, the narration/intent lines that become `##` blocks, on-screen elements, end state, and the link to the next scene
+2. Show the scenes.md content and get **explicit approval**. If changes are requested, apply them and get approval again.
+   - In plan mode you cannot write files. Present the whole scenes.md content as the plan, and write it to `src/<video>/scenes.md` after approval, once plan mode is exited.
+   - Outside plan mode, write `src/<video>/scenes.md` first and then show it.
+   - Once approved, mark it in the `## Approval` field of scenes.md.
 
 ## 2. Code & Render
 
-1. `main.py` 하나에 scenes.md 순서대로 클래스를 쓴다. 형태는 `${CLAUDE_PLUGIN_ROOT}/skills/manimgl-best-practices/examples/structure.py`를 따른다.
-   - 각 클래스는 **혼자 렌더된다.** 앞 씬의 끝 상태가 필요하면 그 클래스 안에서 다시 만든다.
-   - `construct` 안의 `## …` 블록은 scenes.md의 줄과 1:1로 맞춘다.
-2. **씬 하나씩** 마지막 프레임을 확인한다.
+1. Write the classes in one `main.py` in scenes.md order. Follow the shape of `${CLAUDE_PLUGIN_ROOT}/skills/manimgl-best-practices/examples/structure.py`.
+   - Each class **renders on its own.** If it needs the previous scene's end state, rebuild it inside that class.
+   - Match the `## …` blocks inside `construct` 1:1 with the lines in scenes.md.
+2. Check the last frame **one scene at a time**.
    ```bash
-   cd <프로젝트>/src/<영상>
-   uv run manimgl main.py <Scene> -sw </dev/null   # -> videos/<Scene>.png  (-s 만 쓰면 창이 뜨고 멈춘다)
+   cd <project>/src/<video>
+   uv run manimgl main.py <Scene> -sw </dev/null   # -> videos/<Scene>.png  (with -s alone, a window opens and hangs)
    ```
-   - 종료 코드가 0이 아니면 실패다. 실패해도 예전 `videos/<Scene>.png`/`.mp4`가 남아 있으므로 파일만 보고 판단하지 않는다.
-   - `videos/<Scene>.png`를 Read로 열어 다음을 본다.
-     - 겹침
-     - 화면 밖으로 잘린 부분
-     - 한글 □(두부)
-     - 검은 배경 대비 부족
-     - 너무 작은 글자
-     - 지웠어야 할 잔여 객체
-     - 의도와 다른 색. 생성자 `color=`는 `Text/Tex/TexText/Dot/Brace`에서 무시되어 흰색, `Arrow/Vector/StrokeArrow`에서 회색이 되고, `Circle/Ellipse`는 테두리가 빨갛다 (best-practices §6)
-   - 문제가 있으면 고치고 같은 명령을 다시 실행한다.
-3. 영상으로 렌더한다.
+   - A nonzero exit code means failure. Even on failure, an old `videos/<Scene>.png`/`.mp4` may remain, so do not judge by the files alone.
+   - Open `videos/<Scene>.png` with Read and look for the following.
+     - Overlaps
+     - Parts cut off the screen
+     - Korean □ (tofu)
+     - Low contrast on the black background
+     - Text that is too small
+     - Leftover objects that should have been removed
+     - Colors that differ from intent. The constructor `color=` is ignored for `Text/Tex/TexText/Dot/Brace` (they come out white), makes `Arrow/Vector/StrokeArrow` gray, and `Circle/Ellipse` have a red outline (best-practices §6)
+   - If there is a problem, fix it and rerun the same command.
+3. Render to video.
    ```bash
-   uv run manimgl main.py <Scene> -w -l </dev/null   # 초안 854x480 -> videos/<Scene>.mp4
+   uv run manimgl main.py <Scene> -w -l </dev/null   # draft 854x480 -> videos/<Scene>.mp4
    ```
-   - 에러가 나면 Traceback 마지막 부분을 읽고 고친 뒤 **그 씬만** 다시 렌더한다.
-   - 렌더가 끝나면 **중간 장면도 본다.** `-sw` PNG는 마지막 프레임뿐이다.
-     - 그래서 애니메이션 도중의 문제(겹치며 바뀌는 글자, 사라지는 객체 위를 지나가는 객체, 원점에서 커지는 객체)와 카메라가 움직이는 씬의 시작 구도는 거기 보이지 않는다.
-     - 0.5초 간격 프레임을 한 장(6×6칸, 18초분)에 모아 Read로 본다.
+   - On an error, read the end of the Traceback, fix it, and re-render **only that scene**.
+   - After rendering, **also look at the mid-animation frames.** The `-sw` PNG is only the last frame.
+     - So problems during the animation (text that overlaps while changing, an object passing over a disappearing object, an object growing from the origin) and the starting composition of scenes where the camera moves are not visible there.
+     - Gather frames at 0.5-second intervals into one sheet (6×6 cells, 18 seconds' worth) and view it with Read.
      ```bash
      ffmpeg -v error -y -i videos/<Scene>.mp4 -vf "fps=2,scale=320:-1,tile=6x6" videos/sheet_<Scene>_%02d.png
      ```
-     - 시트 m의 k번째 칸(왼쪽 위부터 행 순서)은 약 18(m-1) + 0.5k - 0.25초다.
-     - 2번의 목록으로 각 칸을 본다. 의심 가는 시점은 `ffmpeg -v error -y -ss <초> -i videos/<Scene>.mp4 -frames:v 1 videos/t<초>.png`로 크게 뽑아 본다.
-   - 더 꼼꼼한 검토는 **scene-reviewer** 에이전트(`manimgl-skill:scene-reviewer`)에 `src/<영상>` 절대경로와 씬 이름을 주고 맡긴다.
-4. 모든 씬이 에러 없이 나올 때까지 2~3을 반복한다.
-5. 최종본은 `uv run manimgl main.py <Scene> -w </dev/null`(1920x1080 30fps)로 만든다. 같은 `videos/<Scene>.mp4`에 덮어쓴다.
-   - **모든 씬을 같은 품질 옵션으로** 렌더해야 다음 단계의 `-c copy` 이어 붙이기가 된다.
+     - The k-th cell of sheet m (row order from the top left) is at about 18(m-1) + 0.5k - 0.25 seconds.
+     - Look at each cell using the list in item 2. For a suspicious moment, extract it large with `ffmpeg -v error -y -ss <sec> -i videos/<Scene>.mp4 -frames:v 1 videos/t<sec>.png`.
+   - For a more careful review, hand it to the **scene-reviewer** agent (`manimgl-skill:scene-reviewer`) with the absolute path of `src/<video>` and the scene name.
+4. Repeat 2~3 until every scene comes out without errors.
+5. Make the final version with `uv run manimgl main.py <Scene> -w </dev/null` (1920x1080 30fps). It overwrites the same `videos/<Scene>.mp4`.
+   - Render **all scenes with the same quality options** so the `-c copy` concatenation in the next step works.
 
 ## 3. Iterate
 
-1. scenes.md 순서대로 `concat.txt`를 쓰고 이어 붙인다. 경로는 concat.txt 기준이다.
+1. Write `concat.txt` in scenes.md order and concatenate. Paths are relative to concat.txt.
    ```
    file 'videos/Intro.mp4'
    file 'videos/Quantize.mp4'
@@ -88,50 +88,50 @@ description: End-to-end workflow for making an explainer video with the CodingVi
    ```bash
    ffmpeg -v error -y -f concat -safe 0 -i concat.txt -c copy full.mp4
    ```
-2. 뷰어를 **백그라운드**로 띄운다. 표준 라이브러리와 ffprobe만 쓴다.
+2. Start the viewer **in the background**. It uses only the standard library and ffprobe.
    ```bash
    uv run python ${CLAUDE_SKILL_DIR}/tools/video_viewer.py full.mp4 --order concat.txt --script main.py
    ```
-   - 출력의 `VIDEO_READY http://localhost:<port>` URL을 사용자에게 알린다. 포트는 8000~8999 중 빈 것을 쓴다. 4.5에서 쓰므로 **포트를 기억해 둔다.**
-   - `VIDEO_READY` 대신 `Error:`로 끝나면 concat.txt 항목이 없거나, 길이를 못 읽거나, full.mp4가 concat.txt와 맞지 않는 것이다. 메시지대로 고치고 1번 concat부터 다시 한다.
-   - 뷰어는 브라우저를 직접 연다. 열지 않으려면 명령 앞에 `BROWSER=true`를 붙인다.
-   - 뷰어에는 종료 명령이 없다. 끄는 법은 4.5에 있다.
-   - 챕터 이름은 mp4 파일명, 즉 씬 클래스명이다.
-3. 사용자는 뷰어에서 `t` 키(Capture)로 `[M:SS] <Scene>: <메모>` 줄을 만든다. **Copy** 버튼으로 복사해 대화에 붙여 넣는다.
-4. 피드백 한 줄마다 처리한다.
-   1. 그 시점을 뽑아 Read로 본다. 사용자가 본 장면을 먼저 확인한다.
-      - `[M:SS]`는 full.mp4 기준 시각이고 초 아래를 버린 값이다 (`tools/ui.html` `fmt`). 프레임 한 장만 보면 그 1초 안의 문제를 놓친다.
-      - `<초>` = M×60+SS부터 1초를 4장으로 뽑아 한 장에 모은다.
+   - Tell the user the `VIDEO_READY http://localhost:<port>` URL from the output. Use a free port in 8000~8999. It is needed in 4.5, so **remember the port.**
+   - If it ends with `Error:` instead of `VIDEO_READY`, a concat.txt entry is missing, a duration could not be read, or full.mp4 does not match concat.txt. Fix it as the message says and redo from step 1, concat.
+   - The viewer opens the browser itself. To keep it from opening, put `BROWSER=true` in front of the command.
+   - The viewer has no quit command. How to stop it is in 4.5.
+   - Chapter names are the mp4 file names, that is, the scene class names.
+3. In the viewer, the user presses the `t` key (Capture) to make a `[M:SS] <Scene>: <note>` line. They copy it with the **Copy** button and paste it into the conversation.
+4. Handle each feedback line.
+   1. Extract that moment and view it with Read. First check the scene the user saw.
+      - `[M:SS]` is the time in full.mp4, with the fraction of a second dropped (`tools/ui.html` `fmt`). Looking at a single frame misses problems within that one second.
+      - From `<sec>` = M×60+SS, extract 1 second as 4 frames and gather them into one image.
       ```bash
-      ffmpeg -v error -y -ss <초> -t 1 -i full.mp4 -vf "fps=4,scale=854:-1,tile=2x2" -frames:v 1 fb_<초>.png
+      ffmpeg -v error -y -ss <sec> -t 1 -i full.mp4 -vf "fps=4,scale=854:-1,tile=2x2" -frames:v 1 fb_<sec>.png
       ```
-      - main.py의 어느 `##` 블록인지는 씬 안의 시각으로 찾는다. `<초>`에서 그 챕터의 `start`를 빼면 된다. `start`는 뷰어의 `/chapters.json`에 있다.
-   2. **이름이 나온 씬 클래스만** 고친다.
-      - 고친 결과 그 씬의 끝 상태(남은 객체, 카메라 방향)가 바뀌면, 다음 씬이 다시 만드는 시작 상태도 맞추고 그 씬도 다시 렌더한다.
-      - 여러 씬이 함께 쓰는 함수를 고쳤을 때도 그 씬들을 모두 다시 렌더한다.
-   3. 고친 씬을 `-sw`로 확인한 뒤, 다른 씬과 같은 품질 옵션으로 `-w`(또는 `-w -l`) 다시 렌더한다.
-   4. concat을 다시 해서 `full.mp4`를 만든다.
-   5. **뷰어를 재시작한다.** 챕터 길이와 main.py 탭은 시작할 때 한 번만 읽는다 (`tools/video_viewer.py` `main()`).
-      - 먼저 떠 있는 뷰어를 끈다. 끄지 않으면 아래 `--port` 명령이 그 포트를 잡지 못해 `OSError`(Windows: WinError 10048)로 끝난다. `--port` 없이 띄우면 다음 빈 포트를 잡아 URL이 바뀐다.
-      - `uv run` 아래에서 포트를 잡은 것은 자식 python 프로세스다. 그래서 포트로 찾아서 끈다.
+      - Find which `##` block in main.py by the time within the scene. Subtract that chapter's `start` from `<sec>`. `start` is in the viewer's `/chapters.json`.
+   2. Fix **only the scene class that was named.**
+      - If the fix changes that scene's end state (leftover objects, camera orientation), also match the starting state that the next scene rebuilds, and re-render that scene too.
+      - If you fixed a function shared by several scenes, re-render all of those scenes too.
+   3. Check the fixed scene with `-sw`, then re-render it with `-w` (or `-w -l`) using the same quality options as the other scenes.
+   4. Redo the concat to make `full.mp4`.
+   5. **Restart the viewer.** Chapter durations and the main.py tab are read only once at startup (`tools/video_viewer.py` `main()`).
+      - First stop the running viewer. If you do not, the `--port` command below cannot take that port and ends with `OSError` (Windows: WinError 10048). If you start it without `--port`, it takes the next free port and the URL changes.
+      - Under `uv run`, the process holding the port is the child python process. So find it by port and stop it.
         ```bash
-        # Windows (Git Bash): 마지막 열이 PID
+        # Windows (Git Bash): the last column is the PID
         netstat -ano | grep LISTENING | grep ":<port> "
         taskkill //F //PID <pid>
-        # macOS / Linux (-sTCP:LISTEN이 없으면 브라우저 연결까지 끈다)
+        # macOS / Linux (without -sTCP:LISTEN, browser connections are killed too)
         kill $(lsof -ti tcp:<port> -sTCP:LISTEN)
         ```
-      - 같은 포트로 다시 띄운다. 새 탭은 열지 않는다. 사용자는 열려 있는 탭을 새로고침하면 된다.
+      - Start it again on the same port. Do not open a new tab. The user just refreshes the open tab.
         ```bash
         BROWSER=true uv run python ${CLAUDE_SKILL_DIR}/tools/video_viewer.py full.mp4 --order concat.txt --script main.py --port <port>
         ```
-   6. 고쳐졌는지 확인한다.
-      - 새 full.mp4에서 1번 명령을 `fb_<초>_after.png`로 다시 실행하고 `fb_<초>.png`와 비교한다.
-      - 고친 씬의 길이가 바뀌었으면 `<초>`도 새 `/chapters.json`의 `start`로 다시 계산한다.
-      - 고쳐진 것을 확인한 뒤에 사용자에게 알린다. `-sw` PNG는 마지막 프레임이라서 중간 장면에 대한 피드백은 그것으로 확인되지 않는다.
-5. 사용자가 만족할 때까지 4를 반복한다.
+   6. Verify the fix.
+      - Rerun the command from item 1 on the new full.mp4 as `fb_<sec>_after.png` and compare it with `fb_<sec>.png`.
+      - If the fixed scene's duration changed, recompute `<sec>` from the new `/chapters.json` `start` too.
+      - Tell the user only after confirming the fix. The `-sw` PNG is the last frame, so it does not verify feedback about a mid-animation moment.
+5. Repeat 4 until the user is satisfied.
 
-## 참고
+## Notes
 
-- 뷰어 원본은 Yusuke710/manim-skill(MIT)이다. 바꾼 점은 `tools/README.md`에 있다.
-- 자막, TTS, 보이스오버는 이 워크플로에 없다. 포크에 subcaption API가 없다.
+- The viewer originates from Yusuke710/manim-skill (MIT). The changes are in `tools/README.md`.
+- Subtitles, TTS, and voiceover are not part of this workflow. The fork has no subcaption API.

@@ -1,40 +1,40 @@
-# tools: 로컬 영상 뷰어
+# tools: local video viewer
 
-`video_viewer.py`와 `ui.html`은 [Yusuke710/manim-skill](https://github.com/Yusuke710/manim-skill)의 `skills/manim-skill/tools/`를 가져와 고친 것이다.
-- 기준 커밋: `a0048d9e265499038f34a9aa58ff16d306b5034c`
-- 라이선스: MIT, Copyright (c) 2025 Yusuke Miyashita. 원문은 [LICENSE-manim-skill](LICENSE-manim-skill)에 있다.
+`video_viewer.py` and `ui.html` are taken from `skills/manim-skill/tools/` in [Yusuke710/manim-skill](https://github.com/Yusuke710/manim-skill) and modified.
+- Base commit: `a0048d9e265499038f34a9aa58ff16d306b5034c`
+- License: MIT, Copyright (c) 2025 Yusuke Miyashita. The original text is in [LICENSE-manim-skill](LICENSE-manim-skill).
 
-## 사용
+## Usage
 
 ```bash
-# src/<영상>에서 실행한다. full.mp4와 concat.txt가 거기 있다.
-uv run python <tools 폴더>/video_viewer.py full.mp4 --order concat.txt [--script main.py] [--port N] [--host HOST] [--srt file.srt]
+# Run from src/<video>. full.mp4 and concat.txt are there.
+uv run python <tools folder>/video_viewer.py full.mp4 --order concat.txt [--script main.py] [--port N] [--host HOST] [--srt file.srt]
 ```
 
-- **필요한 것**: Python 표준 라이브러리, `ffprobe`(PATH에 있어야 함). 외부 패키지는 없다.
-- **`--order`**: `file '<경로>'` 줄로 된 ffmpeg concat 목록이다. 경로는 concat.txt가 있는 폴더 기준이다. 각 파일의 길이와 파일명(stem)으로 챕터를 만든다.
-- **실행 동작**:
-  - `--port`가 없으면 8000~8999에서 빈 포트를 찾는다. `--port N`을 주면 그 포트만 쓴다.
-  - `--host` 기본값은 `127.0.0.1`이다.
-  - `VIDEO_READY http://localhost:<port>`를 출력하고 브라우저를 연다. 열지 않으려면 명령 앞에 `BROWSER=true`를 붙인다. Python `webbrowser`가 이 환경 변수를 따른다 [실행확인, Windows].
-  - 종료 명령은 없다. 포트를 잡은 프로세스를 끈다. `uv run`으로 띄웠으면 그 프로세스는 자식 python이다.
-- **경로**:
+- **Requirements**: Python standard library, `ffprobe` (must be on PATH). No external packages.
+- **`--order`**: an ffmpeg concat list made of `file '<path>'` lines. Paths are relative to the folder containing concat.txt. Chapters are built from each file's duration and file name (stem).
+- **Run behavior**:
+  - Without `--port`, it finds a free port in 8000-8999. With `--port N`, it uses only that port.
+  - The default `--host` is `127.0.0.1`.
+  - It prints `VIDEO_READY http://localhost:<port>` and opens the browser. To avoid opening it, prefix the command with `BROWSER=true`. Python `webbrowser` honors this environment variable [verified by run, Windows].
+  - There is no stop command. Kill the process holding the port. If it was started with `uv run`, that process is the child python.
+- **Routes**:
   - `/`: UI
-  - `/video.mp4`: Range 요청을 지원하며 206을 돌려준다
+  - `/video.mp4`: supports Range requests and returns 206
   - `/chapters.json`
   - `/subtitles.srt`
   - `/download`
-  - `/cscript.py`: `--script`로 준 파일 내용
-- **피드백**: `t` 키로 `[M:SS] <챕터명>: ` 줄을 넣고, **Copy**로 복사한다. 서버로 보내는 기능(POST)은 없다.
-- **재시작 필요**: 챕터와 스크립트 내용은 시작할 때 한 번만 읽는다. 씬을 다시 렌더한 뒤에는 뷰어를 다시 띄운다.
-  - 이전 프로세스를 끄지 않으면 새 뷰어는 다음 빈 포트를 쓴다.
-  - 이전 프로세스를 끄고 `--port`로 같은 포트를 주면 URL이 그대로다 (workflow SKILL.md 3단계 4.5).
+  - `/cscript.py`: contents of the file given with `--script`
+- **Feedback**: the `t` key inserts a `[M:SS] <chapter name>: ` line, and **Copy** copies it. There is no feature to send it to the server (POST).
+- **Restart needed**: chapters and script contents are read only once, at startup. After re-rendering a scene, start the viewer again.
+  - If the previous process is not killed, the new viewer uses the next free port.
+  - If you kill the previous process and pass the same port with `--port`, the URL stays the same (workflow SKILL.md step 3, item 4.5).
 
-## 원본과 다른 점
+## Differences from the original
 
-1. 모든 `read_text()`에 `encoding="utf-8"`을 넣었다. Windows 기본 로캘에서 한글 주석이 있는 main.py가 깨지지 않게 하기 위해서다.
-2. 원본 UI의 제3자 브랜드 링크와 관련 CSS, 주석을 지웠다.
-3. 코드 탭 라벨 `script.py`를 `--script`로 준 파일 이름으로 바꿔 보여 준다. `/cscript.py` 경로는 그대로다.
-4. 시작할 때 order 파일을 검사한다. 없는 항목, 길이를 못 읽는 파일(ffprobe 실패나 0초), 씬 길이 합과 영상 길이의 차이가 0.1초를 넘는 경우에는 서버를 띄우지 않고 오류로 끝난다. 이전에는 없는 항목을 버려서 뒤 챕터의 시각이 당겨졌다.
-5. `/video.mp4`의 Range 끝 위치를 파일 크기에 맞춰 자른다. 시작 위치가 파일 끝을 넘으면 416과 `Content-Range: bytes */<크기>`를 돌려준다. 끝이 시작보다 앞인 범위와 `bytes=-N`(마지막 N바이트) 범위는 무시하고 200으로 전체를 보낸다. 이전에는 끝이 파일을 넘으면 Content-Length만 크게 보내서 curl이 18로 끝났다.
-6. 그 외 로직(포트, 챕터, SRT 이어 붙이기)은 원본과 같다.
+1. Added `encoding="utf-8"` to every `read_text()`, so that main.py with Korean comments does not break under the default Windows locale.
+2. Removed the third-party brand link in the original UI, along with the related CSS and comments.
+3. The code tab label `script.py` is replaced with the file name given with `--script`. The `/cscript.py` route is unchanged.
+4. The order file is checked at startup. On a missing entry, a file whose duration cannot be read (ffprobe failure or 0 s), or a difference of more than 0.1 s between the sum of scene durations and the video duration, it exits with an error without starting the server. Previously, missing entries were dropped, which pulled later chapter timestamps earlier.
+5. The Range end position of `/video.mp4` is clamped to the file size. If the start position is past the end of the file, it returns 416 and `Content-Range: bytes */<size>`. Ranges whose end is before the start, and `bytes=-N` (last N bytes) ranges, are ignored and the whole file is sent with 200. Previously, when the end was past the file, only a larger Content-Length was sent, so curl exited with 18.
+6. All other logic (port, chapters, SRT concatenation) is the same as the original.

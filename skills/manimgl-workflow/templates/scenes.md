@@ -1,27 +1,27 @@
-# <영상 제목>
+# <Video title>
 
-- **청중**: <누가 보는가, 무엇을 이미 아는가>
-- **핵심 개념 (한 문장)**: <영상이 끝났을 때 남아야 할 한 가지>
-- **길이 목표**: <씬 수 × 15~30초>
-- **Tex 사용**: <예/아니오. LaTeX가 없으면 아니오>
+- **Audience**: <who is watching, what they already know>
+- **Core idea (one sentence)**: <the one thing that should remain when the video ends>
+- **Length target**: <number of scenes × 15–30 s>
+- **Uses Tex**: <yes/no. no if LaTeX is not installed>
 
-## 씬 목록 (서사 순서 = main.py 클래스 순서 = concat.txt 순서)
+## Scene list (narrative order = main.py class order = concat.txt order)
 
-### 1. `<SceneClassName>` (~20초)
-- **목적**: <이 씬이 전달할 것 하나>
-- **블록** (`## …` 주석과 1:1):
-  - `## <내레이션/의도 1>`: <화면에서 일어나는 일>
-  - `## <내레이션/의도 2>`: <…>
-- **화면 요소**: <Text/Tex/도형/축…, 색 역할: GREY_B 보조, GREEN 정답, RED 오답, YELLOW 강조>
-- **끝 상태**: <다음 씬이 다시 만들어야 할 것>
+### 1. `<SceneClassName>` (~20 s)
+- **Purpose**: <the one thing this scene conveys>
+- **Blocks** (1:1 with `## …` comments):
+  - `## <narration/intent 1>`: <what happens on screen>
+  - `## <narration/intent 2>`: <…>
+- **On-screen elements**: <Text/Tex/shapes/axes…, color roles: GREY_B secondary, GREEN correct, RED wrong, YELLOW emphasis>
+- **End state**: <what the next scene has to rebuild>
 
-### 2. `<SceneClassName>` (~20초)
-- **목적**:
-- **블록**:
+### 2. `<SceneClassName>` (~20 s)
+- **Purpose**:
+- **Blocks**:
   - `## …`:
-- **화면 요소**:
-- **끝 상태**:
+- **On-screen elements**:
+- **End state**:
 
-## 승인
+## Approval
 
-- [ ] 사용자 승인 (날짜):
+- [ ] User approval (date):
