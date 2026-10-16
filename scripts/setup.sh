@@ -41,9 +41,11 @@ esac
 echo "== 1. system dependencies ($OS)"
 command -v uv >/dev/null || die "uv not found: https://docs.astral.sh/uv/getting-started/installation/"
 ok "$(uv --version)"
+command -v git >/dev/null || die "git not found (uv needs it to fetch the fork from git)"
+ok "git"
 command -v ffmpeg >/dev/null || die "ffmpeg not found (needed by manimgl -w). windows: winget install Gyan.FFmpeg | macos: brew install ffmpeg | linux: apt install ffmpeg"
 ok "ffmpeg"
-command -v ffprobe >/dev/null && ok "ffprobe" || warn "ffprobe not found (video viewer chapters need it)"
+command -v ffprobe >/dev/null && ok "ffprobe" || warn "ffprobe not found (the video viewer and the --smoke duration check need it)"
 if command -v latex >/dev/null && command -v dvisvgm >/dev/null; then
   ok "latex + dvisvgm"
   # default template uses T1 fontenc; without Type1 EC fonts dvisvgm emits an empty SVG (exit 0)
@@ -57,13 +59,17 @@ if [ "$OS" = linux ]; then
   if command -v pkg-config >/dev/null && pkg-config --exists pango; then ok "pango (pkg-config)"
   else warn "pango dev headers not found; fork README requires Pango + headers on Linux (see ManimPango 'Building')"; fi
 fi
+if [ "$OS" != windows ]; then
+  echo "  [info] manimgl-skill was verified on Windows only; these checks are untested on $OS"
+fi
 
 echo "== 2. uv project: $PROJECT_DIR"
 mkdir -p "$PROJECT_DIR"
 cd "$PROJECT_DIR"
 PROJECT_ABS="$(pwd)"
 if [ ! -f pyproject.toml ]; then
-  uv init --bare --python "$PY_VERSION" >/dev/null
+  uv init --bare --python "$PY_VERSION" >/dev/null \
+    || die "uv init failed (see the uv error above). a folder name that is not a valid package name (e.g. Korean) needs: uv init --bare --name <ascii-name>, then rerun"
   uv python pin "$PY_VERSION" >/dev/null
   ok "created pyproject.toml (python $PY_VERSION)"
 fi
@@ -71,18 +77,20 @@ fi
 if grep -q 'CodingVillainKor/manimgl' pyproject.toml; then
   grep -q "$FORK_REV" pyproject.toml && ok "manimgl source = fork @ ${FORK_REV:0:8}" \
     || warn "manimgl points to the fork but not commit ${FORK_REV:0:8}; this plugin was verified at that commit"
-elif grep -Eq '^[[:space:]]*"manimgl([^-a-z]|")' pyproject.toml; then
+elif grep -Eq '(^|[[,])[[:space:]]*"manimgl([^-_a-zA-Z0-9]|")' pyproject.toml; then
   warn "pyproject.toml depends on PyPI 'manimgl' (same 'manimlib' module, conflicts with the fork)."
   echo "         fix:  uv remove manimgl && uv add \"manimgl @ git+${FORK_URL}@${FORK_REV}\" trimesh pywavefront" >&2
   exit 2
 else
   # trimesh/pywavefront: imported by manimlib/mobject/types/surface.py but missing from the fork's setup.cfg
-  uv add --no-sync "manimgl @ git+${FORK_URL}@${FORK_REV}" trimesh pywavefront >/dev/null
+  uv add --no-sync "manimgl @ git+${FORK_URL}@${FORK_REV}" trimesh pywavefront >/dev/null || die "uv add of the fork failed (see above)"
   ok "added manimgl (fork @ ${FORK_REV:0:8}) + trimesh + pywavefront"
 fi
 if [ "$WITH_RAE" = 1 ] && ! grep -q 'CodingVillainKor/raenimgl' pyproject.toml; then
-  uv add --no-sync "raenimgl @ git+${RAENIMGL_URL}@${RAENIMGL_REV}" >/dev/null
+  uv add --no-sync "raenimgl @ git+${RAENIMGL_URL}@${RAENIMGL_REV}" >/dev/null || die "uv add of raenimgl failed (see above)"
   ok "added raenimgl @ ${RAENIMGL_REV:0:8} (its 'manimgl>=1.7.2' resolves to the pinned fork)"
+elif [ "$WITH_RAE" = 1 ] && ! grep -q "$RAENIMGL_REV" pyproject.toml; then
+  warn "raenimgl is already in pyproject.toml but not pinned to ${RAENIMGL_REV:0:8}; left unchanged"
 fi
 
 echo "== 3. uv sync"
@@ -90,13 +98,15 @@ uv sync --quiet || die "uv sync failed"
 ok "environment synced"
 
 echo "== 4. verify the installed manimlib is the fork"
-uv run python -c "import manimlib; print(manimlib.__file__)"
-uv run python - "$FORK_REV" <<'PY' || die "fork verification failed (see above)"
+uv run python -c "import manimlib; print(manimlib.__file__)" || die "import manimlib failed (see above)"
+rc=0
+uv run python - "$FORK_REV" <<'PY' || rc=$?
 import json, sys, importlib.metadata as md
 import manimlib
 from manimlib.config import manim_config
 rev = sys.argv[1]
 errors = []
+mismatch = False
 if not manimlib.__file__.startswith(sys.prefix):
     errors.append(f"manimlib is not inside this project's env ({sys.prefix})")
 du = md.distribution("manimgl").read_text("direct_url.json")
@@ -110,6 +120,7 @@ else:
         errors.append(f"manimgl installed from {info.get('url')} (not the fork)")
     elif commit != rev:
         print(f"  [warn] fork commit {commit[:8]} != verified {rev[:8]}", file=sys.stderr)
+        mismatch = True
     else:
         print(f"  [ok]   direct_url.json: {info['url']} @ {commit[:8]}")
 if manim_config.key_bindings.get("yaw") != "e":
@@ -118,8 +129,13 @@ else:
     print("  [ok]   fork marker key_bindings.yaw = 'e'")
 for e in errors:
     print("  [fail] " + e, file=sys.stderr)
-sys.exit(1 if errors else 0)
+sys.exit(1 if errors else (10 if mismatch else 0))
 PY
+case $rc in
+  0) ;;
+  10) WARNS=$((WARNS + 1)) ;;  # commit mismatch, already printed as [warn]
+  *) die "fork verification failed (see above)" ;;
+esac
 
 uv run python -c "import moderngl; c = moderngl.create_standalone_context(); print('  [ok]   OpenGL', c.info['GL_VERSION'], '|', c.info['GL_RENDERER'])" \
   || warn "OpenGL standalone context failed: rendering (-w) will not work on this machine/session"
@@ -156,8 +172,13 @@ PY
   (cd "$SMOKE_DIR" && uv run --project "$PROJECT_ABS" manimgl "$FILE" "$SCENE" -w -l) || die "render of $SCENE failed"
   OUT="$SMOKE_DIR/videos/$SCENE.mp4"
   [ -f "$OUT" ] || die "expected $OUT"
-  DUR="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$OUT")"
-  ok "$SCENE.mp4 rendered (${DUR}s): $OUT"
+  if command -v ffprobe >/dev/null; then
+    DUR="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$OUT")"
+    ok "$SCENE.mp4 rendered (${DUR}s): $OUT"
+  else
+    ok "$SCENE.mp4 rendered: $OUT (ffprobe missing: duration not checked)"
+  fi
 fi
 
-echo "== done ($WARNS warning(s)). next:  cd $PROJECT_ABS/src/<video> && uv run manimgl main.py <Scene> -sw"
+SHOW_DIR="$(pwd -W 2>/dev/null || pwd)"   # Git Bash: print a C:/... path usable from PowerShell too
+echo "== done ($WARNS warning(s)). next:  cd \"$SHOW_DIR/src/<video>\" && uv run manimgl main.py <Scene> -sw"

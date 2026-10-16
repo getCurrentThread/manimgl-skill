@@ -6,7 +6,8 @@
 """
 from manimlib import *
 
-KOTEX_PREAMBLE = R"\usepackage{amsmath}\usepackage{kotex}\setmainhangulfont{Noto Sans KR}"
+# xcolor: t2c, isolate and BulletedList insert \color commands
+KOTEX_PREAMBLE = R"\usepackage{amsmath}\usepackage{xcolor}\usepackage{kotex}\setmainhangulfont{Noto Sans KR}"
 
 
 class KoreanText(Scene):
@@ -38,6 +39,7 @@ class KoreanInTex(Scene):
             R"\text{손실} = \frac{1}{N} \sum_i \ell_i",
             template="empty_ctex",
             additional_preamble=KOTEX_PREAMBLE,
+            t2c={"손실": YELLOW},
             font_size=48,
         )
         self.play(Write(eq))

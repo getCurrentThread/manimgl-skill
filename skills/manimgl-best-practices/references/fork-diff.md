@@ -12,19 +12,19 @@
 
 ## 포크 전용 변경 (전체)
 
-경로는 포크 기준이다.
+경로는 포크 저장소 루트 기준이다.
 
 | 커밋 | 변경 | 위치 |
 |---|---|---|
 | 355b1ea5 | 기본값 변경. 배경 `#333333→#000000`, `default_stroke_width 4.0→2.0`, `text.font Consolas→"Noto Sans KR"` | manimlib/default_config.yml:56,78,91 |
 | 2dae42f1 | dvisvgm에 `--fontmap=ps2pk.map` 추가 (MiKTeX용) | manimlib/utils/tex_file_writing.py:138 |
-| f4c60267 | reload 경로 비교에 `os.path.normcase` 적용 (Windows) | manimlib/module_loader.py:125 |
+| f4c60267 | reload 경로 비교에 `os.path.normcase` 적용 (Windows) | manimlib/module_loader.py:125,132 |
 | 3c7d4789 | SVG를 utf-8로 읽음 | manimlib/mobject/svg/svg_mobject.py:159 |
 | 268f44c0 | 미리보기 창 폭을 모니터의 1/3로 (원래 1/2) | manimlib/window.py:108 |
-| bde8ddca | `e` 키 = yaw (`key_bindings.yaw`) | manimlib/scene/scene.py:767, default_config.yml:121 |
-| 993b64b2 | `c` 키 = `pan_3d_mirror`. `CameraFrame.increment_mirrored_euler_angles(dtheta=0, dphi=0, units=RADIANS)` 추가 | manimlib/camera/camera_frame.py:176, default_config.yml:120 |
-| df31da90 | `CameraFrame.interpolate`가 쿼터니언의 짧은 경로를 택함 | manimlib/camera/camera_frame.py:122 |
-| 455a4201 | CLI `--always_on_top`, yml `window.always_on_top`, `Window(always_on_top=)` (Windows 전용) | manimlib/config.py:104, manimlib/window.py:40,82 |
+| bde8ddca | `e` 키 = yaw (`key_bindings.yaw`) | manimlib/scene/scene.py:767-771, manimlib/default_config.yml:121 |
+| 993b64b2 | `c` 키 = `pan_3d_mirror`. `CameraFrame.increment_mirrored_euler_angles(dtheta=0, dphi=0, units=RADIANS)` 추가 | manimlib/camera/camera_frame.py:176, manimlib/default_config.yml:120 |
+| df31da90 | `CameraFrame.interpolate`가 쿼터니언의 짧은 경로를 택함 | manimlib/camera/camera_frame.py:122-130 |
+| 455a4201 | CLI `--always_on_top`, yml `window.always_on_top`, `Window(always_on_top=)` (Windows 전용) | manimlib/config.py:103-107, manimlib/window.py:40,82 |
 
 부작용이 하나 있다.
 - `c` 키가 `pan_3d_mirror`(yml:120)와 `color`(yml:132) 두 곳에 묶여 있다.
@@ -32,45 +32,67 @@
 
 ## upstream/master에만 있는 것 (포크에서 쓰면 안 됨)
 
-경로는 upstream@fafa083 기준이며, 포크에서는 grep 결과가 0건이다.
+경로는 upstream@fafa083 기준이며, 포크에는 해당 정의가 없다. `Updater`는 포크 `manimlib/mobject/mobject.py:61`에 TYPE_CHECKING용 타입 별칭으로만 있고 클래스는 없다. 그래서 `grep Updater`는 포크에서도 결과가 나온다.
 
 | API | upstream 위치 |
 |---|---|
 | `VideoMobject`, `Sprite` | manimlib/mobject/types/video_mobject.py:258,398 |
-| `PlaneFractal`, `MandelbrotFractal`, `JuliaFractal`, `NewtonFractal` | manimlib/mobject/fractals.py |
+| `PlaneFractal`, `MandelbrotFractal`, `JuliaFractal`, `NewtonFractal`, `MetaNewtonFractal` | manimlib/mobject/fractals.py:64,116,164,185,284 |
 | `vmobject_to_svg` | manimlib/utils/svg_export.py:8 |
 | `Surface.set_sort_to_camera` | manimlib/mobject/types/surface.py:267 |
 | `VMobject.set_joint_roundness` | manimlib/mobject/types/vectorized_mobject.py:591 |
 | `set_fill(..., gradient_direction=)` | manimlib/mobject/types/vectorized_mobject.py:271 |
 | `Updater` 클래스 | manimlib/mobject/mobject.py:2247 |
 | 설정 `scene.invert_zoom_scroll` | manimlib/default_config.yml:87 |
-| `Camera(bundle_draws=)` | manimlib/camera/camera.py:119 |
+| `Camera(bundle_draws=, draw_together=)`, 설정 `camera.bundle_draws`, `camera.draw_together` | manimlib/camera/camera.py:119-120, manimlib/default_config.yml:56,59 |
+| `SceneFileWriter(crf=)`, 설정 `file_writer.crf` | manimlib/scene/scene_file_writer.py:52 |
 
-- 포크의 `Scene`은 생성자에 모르는 설정 키가 들어오면 TypeError를 낸다 [실행확인]. 그래서 upstream용 `custom_config.yml`을 그대로 가져오면 렌더가 시작되지 않는다.
+- 포크는 모르는 설정 키를 받으면 그 섹션의 생성자에서 TypeError를 낸다 [실행확인]. 그래서 upstream용 `custom_config.yml`을 그대로 가져오면 렌더가 시작되지 않는다.
   ```
   TypeError: Scene.__init__() got an unexpected keyword argument 'invert_zoom_scroll'
+  TypeError: Camera.__init__() got an unexpected keyword argument 'bundle_draws'
   ```
-- 3b1b/videos의 `custom_config.yml`이 이 키를 쓴다.
+  - `camera.draw_together`, `file_writer.crf`도 같은 식으로 실패한다. 상세 내용은 [cli-and-output.md](cli-and-output.md) §5에 있다.
+- 3b1b/videos의 `custom_config.yml`이 `invert_zoom_scroll`을 쓴다.
 
 ## 포크와 PyPI `manimgl` 1.7.2 비교
 
-- 버전 문자열이 둘 다 `1.7.2`라 구분할 수 없다.
+아래는 PyPI 1.7.2와 포크를 각각 깨끗한 venv에 설치해 비교한 결과다 [실행확인, Windows].
+
+- PyPI 1.7.2의 `manimlib/`은 포크 저장소의 태그 v1.7.2(f427fc67)와 파일 단위로 같다 (`diff -rq`).
+- 버전 문자열이 둘 다 `1.7.2`라 구분할 수 없다. `importlib.metadata.version`과 `manimlib.__version__` 모두 같다.
 - 판별 방법은 둘이다.
-  - fork 마커 `manim_config.key_bindings.yaw == "e"` 확인
-  - `site-packages/manimgl-*.dist-info/direct_url.json`의 `url`과 `vcs_info.commit_id` 확인
-- `scripts/setup.sh`가 두 가지를 모두 검사한다.
-- 포크는 1.7.2에 upstream 커밋 51개와 포크 커밋 9개를 더한 상태다.
-- 1.7.2 이후 포크에 들어온 API:
+  - fork 마커 `manim_config.key_bindings.yaw == "e"` 확인. 1.7.2에는 `yaw` 키가 없다.
+  - `site-packages/manimgl-*.dist-info/direct_url.json`의 `url`과 `vcs_info.commit_id` 확인. PyPI 설치에는 이 파일이 없다.
+- `scripts/setup.sh`가 두 가지를 모두 검사한다. 1.7.2 환경에서는 둘 다 `[fail]`로 나온다.
+- 포크는 태그 v1.7.2(f427fc67)에 upstream 커밋 51개와 포크 커밋 9개를 더한 상태다 (`git rev-list --count v1.7.2..2e31f79a`).
+  - 51개에는 버전 번호를 1.7.2로 올린 0c69ab6a(setup.cfg만 변경)와 머지 커밋 c48c4b6a가 들어 있다. 나머지 49개 중 `manimlib/`을 바꾸는 커밋은 39개다 (`git rev-list --no-merges --count v1.7.2..2e31f79a -- manimlib`). 나머지 10개는 README, example_scenes.py, 의존성 파일(requirements.txt/setup.cfg), CI 워크플로(.github/workflows/publish.yml)만 바꾸거나 빈 커밋(14f5f8ea)이다.
+- 1.7.2 이후 포크에 들어온 API (두 환경에서 `hasattr`로 확인):
   - `Scene.remove_all_except`, `Scene.set_background_color`
-  - `set_clip_planes`, `clip_to_box`, `put_start_on`/`put_end_on`, `set_z_index`
+  - `set_clip_planes`, `clip_to_box`, `put_start_on`/`put_end_on`
   - `LineBrace`, `Slider`, `ThreeDModel`, `TexturedGeometry`
-- `Text`/`Tex` 크기 기준이 `font_size=144`일 때 "0"의 높이가 1 unit이다 (default_config.yml `font_size_for_unit_height`).
+- `set_z_index`는 1.7.2에도 있었다.
+  - 1.7.2는 그 객체에만 적용한다.
+  - 포크는 `recurse=True` 인자가 추가되어 기본으로 하위 객체 전체에 적용한다 (F:manimlib/mobject/mobject.py:1238). `VGroup(Square(), Circle()).set_z_index(3)`의 자식 값은 1.7.2에서 [0, 0], 포크에서 [3, 3]이다.
+- 글자 크기 기준:
+  - 포크의 `Tex`는 `font_size=144`일 때 "0"의 높이가 약 1 unit이다 (F:manimlib/default_config.yml:88 `tex.font_size_for_unit_height`, 실측 0.997).
+  - `Text`도 같은 설정이 있지만 (yml:94) 실측 높이는 폰트에 따라 다르다. 포크 기본 Noto Sans KR에서는 약 1.37 unit이고, Consolas는 약 1.18이다. 비율은 font_size와 무관하게 일정하다.
+  - 그래서 같은 font_size에서 `Text`가 `Tex`보다 약 1.37배 크다. Text 크기를 정확히 맞추려면 `height=`나 `set_height`를 쓴다.
+  - 1.7.2에는 이 설정이 없고 고정 상수를 쓴다 (`TEXT_MOB_SCALE_FACTOR=0.0076`, `SCALE_FACTOR_PER_FONT_POINT=0.001`). 그래서 두 버전의 글자 크기가 다르다.
+- `Surface`의 생성 축 인자는 포크에서 `preferred_creation_axis`, 1.7.2에서 `prefered_creation_axis`(오타)다 (F:manimlib/mobject/types/surface.py:55). 한쪽용 코드는 다른 쪽에서 동작하지 않는다.
+- CLI:
+  - `--help`의 차이는 `--always_on_top` 하나뿐이다.
+  - `--fps 30`은 포크에서 int 30, 1.7.2에서 문자열 `'30'`으로 파싱된다. help 문구는 같아서 help로는 드러나지 않는다.
+- 1.7.2 자체의 문제 (포크에서는 해결됨):
+  - `manimlib/__init__.py:1`이 `import pkg_resources`를 하는데 setuptools가 의존성에 없다. 그래서 깨끗한 venv에서 `import manimlib`가 실패한다. `setuptools<81`을 설치하면 된다.
+  - `Tex`가 MiKTeX에서 항상 `LaTeX compilation failed`로 실패한다. 1.7.2는 `latex`에 `-no-pdf`를 무조건 넘기는데 MiKTeX의 latex는 이 옵션을 모른다. 포크는 xelatex일 때만 넘긴다.
 
 ## 패키징 공백
 
 - `manimlib/mobject/types/surface.py:5-6`이 `trimesh`와 `pywavefront`를 최상위에서 import한다.
 - `manimlib/__init__.py:62`가 이 모듈을 star-import한다.
 - 그런데 `setup.cfg` install_requires에는 둘 다 없고, 두 패키지를 끌어오는 다른 의존성도 없다 (`uv tree --invert --package trimesh` 결과 프로젝트 직접 의존뿐).
-- 그래서 `pip install git+…`만 하면 `import manimlib`가 ModuleNotFoundError로 실패한다. 소스로 추론한 것이며 별도 환경에서 재현하지는 않았다.
+- 그래서 포크만 설치하면 `import manimlib`가 `ModuleNotFoundError: No module named 'trimesh'`로 실패한다 [실행확인: 새 venv에 포크만 설치].
+- 1.7.2도 이 두 패키지를 의존성에 두지 않지만, 1.7.2 소스는 둘을 import하지 않으므로 문제가 없다. 이 공백은 1.7.2 이후의 일이다.
 - 해결: 두 패키지를 함께 설치한다. imcommit pyproject와 setup.sh가 이렇게 한다.
-- `python_requires`가 없지만 `float | int` 같은 문법을 쓰므로 실제로는 3.10 이상이 필요하다. imcommit은 3.10.18, setup.sh는 3.10을 쓴다.
+- `python_requires`가 없다. imcommit은 3.10.18, setup.sh는 3.10을 쓴다. 이 플러그인은 3.10에서만 확인했다.

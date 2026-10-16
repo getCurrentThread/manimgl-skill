@@ -6,7 +6,7 @@ class CameraMoves(Scene):
     def construct(self):
         ## 넓은 캔버스: 영역 사이를 카메라가 이동한다
         left = VGroup(Square(2, color=BLUE), Text("A", font_size=60)).move_to(LEFT * 3)
-        right = VGroup(Circle(radius=1, color=GREEN), Text("B", font_size=60)).move_to(RIGHT * 12)
+        right = VGroup(Circle(radius=1).set_color(GREEN), Text("B", font_size=60)).move_to(RIGHT * 12)
         self.add(left, right)
 
         self.frame.save_state()

@@ -8,7 +8,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PROJECT="$(cd "${1:?usage: check_examples.sh PROJECT_DIR [OUT_DIR]}" && pwd)"
+PROJECT="$(cd "${1:?usage: check_examples.sh PROJECT_DIR [OUT_DIR]}" && pwd)" || exit 2
 OUT="${2:-$(mktemp -d)}"
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"
