@@ -35,4 +35,6 @@ uv run python <tools 폴더>/video_viewer.py full.mp4 --order concat.txt [--scri
 1. 모든 `read_text()`에 `encoding="utf-8"`을 넣었다. Windows 기본 로캘에서 한글 주석이 있는 main.py가 깨지지 않게 하기 위해서다.
 2. 원본 UI의 제3자 브랜드 링크와 관련 CSS, 주석을 지웠다.
 3. 코드 탭 라벨 `script.py`를 `--script`로 준 파일 이름으로 바꿔 보여 준다. `/cscript.py` 경로는 그대로다.
-4. 그 외 로직(포트, 챕터, Range, SRT 이어 붙이기)은 원본과 같다.
+4. 시작할 때 order 파일을 검사한다. 없는 항목, 길이를 못 읽는 파일(ffprobe 실패나 0초), 씬 길이 합과 영상 길이의 차이가 0.1초를 넘는 경우에는 서버를 띄우지 않고 오류로 끝난다. 이전에는 없는 항목을 버려서 뒤 챕터의 시각이 당겨졌다.
+5. `/video.mp4`의 Range 끝 위치를 파일 크기에 맞춰 자른다. 시작 위치가 파일 끝을 넘으면 416과 `Content-Range: bytes */<크기>`를 돌려준다. 끝이 시작보다 앞인 범위와 `bytes=-N`(마지막 N바이트) 범위는 무시하고 200으로 전체를 보낸다. 이전에는 끝이 파일을 넘으면 Content-Length만 크게 보내서 curl이 18로 끝났다.
+6. 그 외 로직(포트, 챕터, SRT 이어 붙이기)은 원본과 같다.

@@ -36,16 +36,33 @@
 
 | API | upstream 위치 |
 |---|---|
-| `VideoMobject`, `Sprite` | manimlib/mobject/types/video_mobject.py:258,398 |
+| `VideoMobject`, `Sprite`, `VideoSource` | manimlib/mobject/types/video_mobject.py:258,398,31 |
 | `PlaneFractal`, `MandelbrotFractal`, `JuliaFractal`, `NewtonFractal`, `MetaNewtonFractal` | manimlib/mobject/fractals.py:64,116,164,185,284 |
 | `vmobject_to_svg` | manimlib/utils/svg_export.py:8 |
-| `Surface.set_sort_to_camera` | manimlib/mobject/types/surface.py:267 |
-| `VMobject.set_joint_roundness` | manimlib/mobject/types/vectorized_mobject.py:591 |
+| `COMMON_UNIFORMS`, `uniform_block_dtype` (포크에는 `manimlib/renderer/` 자체가 없음) | manimlib/renderer/uniform_block.py:21,37 |
+| `Keys`, `Mods` (모듈 `manimlib.event_keys`) | manimlib/event_keys.py:17,38 |
+| `Surface.set_sort_to_camera`, `Surface(sort_to_camera=)`, `Surface.get_resolution` | manimlib/mobject/types/surface.py:267,73,98 |
+| `VMobject.set_joint_roundness`, `VMobject(joint_roundness=, stroke_width_in_scene_units=)` | manimlib/mobject/types/vectorized_mobject.py:591,107,112 |
 | `set_fill(..., gradient_direction=)` | manimlib/mobject/types/vectorized_mobject.py:271 |
+| `Mobject(textures=, texture_filter=)` | manimlib/mobject/mobject.py:103,104 |
+| `Mobject.update(..., frame_rate=)` | manimlib/mobject/mobject.py:799 |
+| `AnimationGroup(time_span=)`, `LaggedStartMap(time_span=)`의 그룹 단위 적용 | manimlib/animation/composition.py:35-47,113,174-186 |
+| `set_color_by_code`에 WGSL 코드, `VMobject.set_color_by_code(code_target=)` | manimlib/mobject/mobject.py:1956, manimlib/mobject/types/vectorized_mobject.py:468 |
 | `Updater` 클래스 | manimlib/mobject/mobject.py:2247 |
 | 설정 `scene.invert_zoom_scroll` | manimlib/default_config.yml:87 |
 | `Camera(bundle_draws=, draw_together=)`, 설정 `camera.bundle_draws`, `camera.draw_together` | manimlib/camera/camera.py:119-120, manimlib/default_config.yml:56,59 |
 | `SceneFileWriter(crf=)`, 설정 `file_writer.crf` | manimlib/scene/scene_file_writer.py:52 |
+
+- 포크에서 쓰면 이렇게 된다 [실행확인: 포크 환경에서 생성·호출만, 렌더 없음].
+  - 위 클래스·함수 이름은 `from manimlib import *`에 없다. 그래서 NameError다. `manimlib.event_keys`, `manimlib.renderer`를 직접 import하면 ModuleNotFoundError다.
+  - `set_sort_to_camera`, `get_resolution`, `set_joint_roundness`는 AttributeError다.
+  - `sort_to_camera=`, `joint_roundness=`, `stroke_width_in_scene_units=`, `textures=`, `texture_filter=`는 `TypeError: Mobject.__init__() got an unexpected keyword argument ...`다. `set_fill(gradient_direction=)`, `update(frame_rate=)`, `set_color_by_code(code_target=)`도 TypeError다.
+- `time_span=` 키워드 자체는 포크의 모든 Animation이 받는다 (F:manimlib/animation/animation.py:29). 차이는 그룹 단위 적용이다 [실행확인: 포크 scene.py:494,562의 진행을 그대로 따라 불투명도 측정].
+  - 포크 `AnimationGroup(FadeIn(sq), time_span=(1, 2))`는 오류가 없다. 재생 길이만 2초가 된다. `AnimationGroup.interpolate`가 time_span을 보지 않아서 (F:manimlib/animation/composition.py:114) 내용은 0초부터 원래 길이 1초로 끝난다. t=0.5에서 불투명도 0.5다.
+  - upstream은 내용을 [1, 2]초에 맞춘다 (U:composition.py:43-47,113) [소스만].
+  - 포크 `LaggedStartMap`은 `time_span`을 그룹이 아니라 각 멤버 생성에 넘긴다 (F:composition.py:175-178). 그룹의 `time_span`은 None이다. `anim_func`가 이 키워드를 받지 않으면 (예: `lambda m: FadeIn(m)`) TypeError다. upstream은 그룹에 준다 (U:composition.py:174-186) [소스만].
+  - 포크에서는 각 애니메이션에 직접 준다. `FadeIn(sq, time_span=(1, 2))`는 t=1에서 0, t=1.5에서 0.5다 [실행확인].
+- `set_color_by_code`는 이름만 같다. 포크는 GLSL 코드를 받고 (F:manimlib/mobject/mobject.py:1989 `glsl_code`), upstream은 WGSL을 받는다. 포크는 호출 시점에 코드를 검사하지 않는다 [실행확인]. WGSL 코드가 렌더에서 어떻게 실패하는지는 렌더하지 않아 확인하지 않았다.
 
 - 포크는 모르는 설정 키를 받으면 그 섹션의 생성자에서 TypeError를 낸다 [실행확인]. 그래서 upstream용 `custom_config.yml`을 그대로 가져오면 렌더가 시작되지 않는다.
   ```

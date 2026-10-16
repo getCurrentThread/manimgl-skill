@@ -32,7 +32,9 @@ class Intro(Scene):
 
         ## 하나만 강조하고 나머지는 흐리게
         focus = weights[5]
-        self.play(weights.animate.set_opacity(0.2), focus.animate.set_opacity(1), run_time=0.5)
+        # focus 는 weights 의 자식이라 weights.animate 와 겹친다 -> 나머지만 묶어 animate
+        others = VGroup(*(w for w in weights if w is not focus))
+        self.play(others.animate.set_opacity(0.2), focus.animate.set_opacity(1), run_time=0.5)
         self.play(FlashAround(focus, color=YELLOW))
         self.wait()
 

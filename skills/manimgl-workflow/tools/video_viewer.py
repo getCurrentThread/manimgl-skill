@@ -3,7 +3,9 @@
 
 Ported from Yusuke710/manim-skill tools/video_viewer.py
 (MIT, Copyright (c) 2025 Yusuke Miyashita; see LICENSE-manim-skill).
-Changes: utf-8 file reads (Windows/Korean), Code-tab label shows the --script file name.
+Changes: utf-8 file reads (Windows/Korean), Code-tab label shows the --script file name,
+startup fails on missing/unreadable order entries or a video/order duration mismatch,
+Range end is clamped to the file size and a start past the end gets 416.
 """
 
 import argparse, http.server, json, os, re, shutil, socketserver, subprocess, sys, threading, webbrowser
@@ -65,8 +67,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             size = os.path.getsize(path)
             range_hdr = self.headers.get("Range")
 
-            if range_hdr and (m := re.match(r"bytes=(\d+)-(\d*)", range_hdr)):
-                start, end = int(m[1]), int(m[2]) if m[2] else size - 1
+            # RFC 9110: end < start is invalid and ignored; suffix ranges (bytes=-N) don't match either; both get a full 200
+            if range_hdr and (m := re.match(r"bytes=(\d+)-(\d*)", range_hdr)) and not (m[2] and int(m[2]) < int(m[1])):
+                start, end = int(m[1]), min(int(m[2]), size - 1) if m[2] else size - 1
+                if start >= size:
+                    self.send_response(416)
+                    self.send_header("Content-Range", f"bytes */{size}")
+                    self.send_header("Content-Length", 0)
+                    self.end_headers()
+                    return
                 self.send_response(206)
                 self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
                 self.send_header("Content-Length", end - start + 1)
@@ -160,9 +169,11 @@ def main():
     if not os.path.exists(args.order):
         sys.exit(f"Error: {args.order} not found")
 
-    scenes = [s for s in parse_order_file(args.order) if os.path.exists(s)]
+    scenes = parse_order_file(args.order)
     if not scenes:
         sys.exit("Error: No videos found in order file")
+    if missing := [os.path.abspath(s) for s in scenes if not os.path.exists(s)]:
+        sys.exit("Error: order file entries not found:\n  " + "\n  ".join(missing))
 
     port = args.port or find_port()
     if not port:
@@ -170,6 +181,13 @@ def main():
 
     print("Building chapters...")
     chapters = build_chapters(scenes)
+    if bad := [os.path.abspath(s) for s, c in zip(scenes, chapters) if not c["duration"] > 0]:
+        sys.exit("Error: no duration (ffprobe failed or 0):\n  " + "\n  ".join(bad))
+    total, full = sum(c["duration"] for c in chapters), get_duration(args.video)
+    # measured |full - total| with ffmpeg concat -c copy: <=0.00065s (2/4/10/50 sample mp4s), 0.024s (10 clips with AAC audio)
+    if abs(full - total) > 0.1:
+        sys.exit(f"Error: {args.video} is {full:.3f}s but order file scenes sum to {total:.3f}s. "
+                 f"Rebuild it from the same order file: ffmpeg -v error -y -f concat -safe 0 -i {args.order} -c copy {args.video}")
     print(f"Found {len(chapters)} chapters")
 
     script_name = Path(args.script).name if args.script else "script.py"

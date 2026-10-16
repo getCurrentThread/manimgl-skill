@@ -12,7 +12,7 @@ description: End-to-end workflow for making an explainer video with the CodingVi
 - **결과물**: `src/<영상>/main.py`, 씬별 `videos/<Scene>.mp4`, `full.mp4`, 뷰어 URL을 넘긴다.
 - **막혔을 때**: 실패한 명령과 에러의 마지막 줄을 그대로 보고한다.
 - **승인 전 코딩 금지**: 사용자가 Plan을 승인하기 전에는 `main.py`를 쓰지 않는다.
-- **커밋 기준**: 이 워크플로가 맞춘 것은 포크 @455a4201 하나다. setup.sh는 포크를 새로 추가할 때 이 커밋으로 고정하고, 이미 다른 커밋이면 경고만 한다.
+- **커밋 기준**: 이 워크플로가 맞춘 것은 포크 @455a4201 하나다. setup.sh는 포크를 새로 추가할 때 이 커밋으로 고정하고, 이미 다른 커밋이면 커밋은 바꾸지 않고 경고한다 (빠진 `trimesh`/`pywavefront`만 추가).
 
 ## 0. 준비 (프로젝트당 한 번)
 
@@ -93,6 +93,7 @@ description: End-to-end workflow for making an explainer video with the CodingVi
    uv run python ${CLAUDE_SKILL_DIR}/tools/video_viewer.py full.mp4 --order concat.txt --script main.py
    ```
    - 출력의 `VIDEO_READY http://localhost:<port>` URL을 사용자에게 알린다. 포트는 8000~8999 중 빈 것을 쓴다. 4.5에서 쓰므로 **포트를 기억해 둔다.**
+   - `VIDEO_READY` 대신 `Error:`로 끝나면 concat.txt 항목이 없거나, 길이를 못 읽거나, full.mp4가 concat.txt와 맞지 않는 것이다. 메시지대로 고치고 1번 concat부터 다시 한다.
    - 뷰어는 브라우저를 직접 연다. 열지 않으려면 명령 앞에 `BROWSER=true`를 붙인다.
    - 뷰어에는 종료 명령이 없다. 끄는 법은 4.5에 있다.
    - 챕터 이름은 mp4 파일명, 즉 씬 클래스명이다.

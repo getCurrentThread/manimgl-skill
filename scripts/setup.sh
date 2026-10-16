@@ -74,15 +74,25 @@ if [ ! -f pyproject.toml ]; then
   ok "created pyproject.toml (python $PY_VERSION)"
 fi
 
+# has_dep NAME: pyproject has a "NAME..." or 'NAME...' dependency entry, any case (also true for "manimgl @ git+...")
+# shortcut: regex, not a TOML parser (python 3.10 has no tomllib); misses '''NAME''' strings and also counts entries
+# outside [project].dependencies (e.g. optional-dependencies), parse if that shows up
+has_dep() { grep -Eiq "(^|[[,])[[:space:]]*[\"']$1[^-_a-zA-Z0-9]" pyproject.toml; }
+# trimesh/pywavefront: imported by manimlib/mobject/types/surface.py but missing from the fork's setup.cfg
 if grep -q 'CodingVillainKor/manimgl' pyproject.toml; then
   grep -q "$FORK_REV" pyproject.toml && ok "manimgl source = fork @ ${FORK_REV:0:8}" \
     || warn "manimgl points to the fork but not commit ${FORK_REV:0:8}; this plugin was verified at that commit"
-elif grep -Eq '(^|[[,])[[:space:]]*"manimgl([^-_a-zA-Z0-9]|")' pyproject.toml; then
+  EXTRA=""
+  for p in trimesh pywavefront; do has_dep "$p" || EXTRA="$EXTRA $p"; done
+  if [ -n "$EXTRA" ]; then
+    uv add --no-sync $EXTRA >/dev/null || die "uv add of$EXTRA failed (see above)"
+    ok "added$EXTRA (imported by the fork, omitted from its setup.cfg)"
+  fi
+elif has_dep manimgl; then
   warn "pyproject.toml depends on PyPI 'manimgl' (same 'manimlib' module, conflicts with the fork)."
   echo "         fix:  uv remove manimgl && uv add \"manimgl @ git+${FORK_URL}@${FORK_REV}\" trimesh pywavefront" >&2
   exit 2
 else
-  # trimesh/pywavefront: imported by manimlib/mobject/types/surface.py but missing from the fork's setup.cfg
   uv add --no-sync "manimgl @ git+${FORK_URL}@${FORK_REV}" trimesh pywavefront >/dev/null || die "uv add of the fork failed (see above)"
   ok "added manimgl (fork @ ${FORK_REV:0:8}) + trimesh + pywavefront"
 fi
@@ -173,7 +183,8 @@ PY
   OUT="$SMOKE_DIR/videos/$SCENE.mp4"
   [ -f "$OUT" ] || die "expected $OUT"
   if command -v ffprobe >/dev/null; then
-    DUR="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$OUT")"
+    DUR="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$OUT" || true)"
+    awk -v d="$DUR" 'BEGIN { exit !(d + 0 > 0) }' || die "$OUT has no positive duration (ffprobe: '$DUR')"
     ok "$SCENE.mp4 rendered (${DUR}s): $OUT"
   else
     ok "$SCENE.mp4 rendered: $OUT (ffprobe missing: duration not checked)"

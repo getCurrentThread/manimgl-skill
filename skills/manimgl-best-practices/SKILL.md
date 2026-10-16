@@ -64,6 +64,8 @@ description: Rules for writing manimgl scenes against the CodingVillainKor/manim
 - `Surface.set_sort_to_camera` (U:manimlib/mobject/types/surface.py:267)
 - `VMobject.set_joint_roundness`, `set_fill(gradient_direction=)` (U:manimlib/mobject/types/vectorized_mobject.py:591,271)
 - `Updater` 클래스 (U:manimlib/mobject/mobject.py:2247)
+- 키워드 `sort_to_camera=`, `joint_roundness=`, `stroke_width_in_scene_units=`, `textures=`, `texture_filter=`, `update(frame_rate=)`는 TypeError로 실패한다 [실행확인].
+- `AnimationGroup(time_span=)`은 오류 없이 span을 무시하고 0초부터 재생한다 [실행확인]. 각 애니메이션에 직접 `time_span=`을 준다. `VideoSource`, `Keys`/`Mods`, `LaggedStartMap(time_span=)`, `set_color_by_code`(포크는 GLSL) 등 나머지는 fork-diff.md에 있다.
 - 설정 키 `scene.invert_zoom_scroll`, `camera.bundle_draws`, `camera.draw_together`, `file_writer.crf`
   - 포크는 모르는 설정 키를 받으면 그 섹션의 생성자에서 TypeError로 실패한다 [실행확인]. 예: `TypeError: Scene.__init__() got an unexpected keyword argument 'invert_zoom_scroll'`, `Camera.__init__() got an unexpected keyword argument 'bundle_draws'`
   - 그래서 3b1b/videos의 `custom_config.yml`은 그대로 쓸 수 없다.
@@ -231,6 +233,7 @@ imcommit 관례 요약이다. 상세 내용과 근거는 [references/imcommit-pa
   - 한 `self.play` 안에서 한 객체에는 `.animate`를 하나만 준다.
     - 부모 VGroup과 그 자식에 `.animate`를 따로 주면, 둘 다 play 전 상태로 목표를 만들고 나중 것이 앞의 변경을 덮어쓴다 (E2E 테스트에서 재현).
     - 메서드를 한 `.animate`에 이어 쓰거나(`mob.animate.set_stroke(...).set_opacity(...)`) play를 나눈다.
+    - 하나만 다르게 하려면 그것을 뺀 형제 묶음(`VGroup(*(w for w in group if w is not focus))`)에 `.animate`를 준다 ([examples/structure.py](examples/structure.py)).
 
 ## 12. 예제 (전부 `-sw`와 `-w -l`로 렌더 확인)
 

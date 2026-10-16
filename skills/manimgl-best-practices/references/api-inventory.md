@@ -7,6 +7,7 @@
   ```
   uv run python -c "import inspect, manimlib; print(inspect.signature(manimlib.Axes.get_graph))"
   ```
+- 이 문서는 클래스 목록만 둔다. `CameraFrame` 메서드 시그니처는 [korean-tex-3d.md](korean-tex-3d.md) §C2, 업데이터 주의는 [SKILL.md](../SKILL.md) §10에 있다.
 
 ## Scene (3)
 
