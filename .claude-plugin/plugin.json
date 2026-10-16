@@ -1,0 +1,9 @@
+{
+  "name": "manimgl-skill",
+  "version": "0.1.0",
+  "description": "Claude Code plugin for the CodingVillainKor/manimgl fork (3b1b manim, Korean defaults): fork-verified best practices, Plan → Code & Render → Iterate workflow, local viewer, scene reviewer and uv setup script.",
+  "author": {
+    "name": "manimgl-skill maintainers"
+  },
+  "keywords": ["manimgl", "manim", "3blue1brown", "animation", "korean", "video"]
+}

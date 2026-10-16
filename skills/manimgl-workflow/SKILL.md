@@ -1,0 +1,95 @@
+---
+name: manimgl-workflow
+description: End-to-end workflow for making an explainer video with the CodingVillainKor/manimgl fork - Plan (scenes.md, user approval) → Code & Render (src/<video>/main.py, last-frame check with -sw, then -w per scene) → Iterate (concat, local viewer, timestamped feedback, re-render only the named scene). Use when the user asks to make or animate a video/scene with manimgl, or runs /manimgl-skill:scene.
+---
+
+# manimgl 영상 워크플로: Plan → Code & Render → Iterate
+
+코드를 쓰기 전에 **manimgl-best-practices** 스킬을 따른다. 포크 API, 색 함정, 한글, CLI 규칙이 거기 있다.
+
+## 계약
+
+- **결과물**: `src/<영상>/main.py`, 씬별 `videos/<Scene>.mp4`, `full.mp4`, 뷰어 URL을 넘긴다.
+- **막혔을 때**: 실패한 명령과 에러의 마지막 줄을 그대로 보고한다.
+- **승인 전 코딩 금지**: 사용자가 Plan을 승인하기 전에는 `main.py`를 쓰지 않는다.
+- **커밋 기준**: 이 워크플로가 맞춘 것은 포크 @455a4201 하나다 (setup.sh가 고정).
+
+## 0. 준비 (프로젝트당 한 번)
+
+- 프로젝트는 `pyproject.toml`이 있는 uv 프로젝트 루트다. 포크가 아직 없으면 설치한다.
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/scripts/setup.sh <프로젝트 루트>                  # raenimgl도 쓰려면 --with-raenimgl
+  ```
+- setup.sh 결과별 처리:
+  - **exit 2 (PyPI `manimgl`과 충돌)**: 출력된 해결 명령을 사용자에게 보여 주고, 승인을 받은 뒤 실행한다.
+  - **LaTeX / cm-super 경고**: Tex 없이 계획하거나(Text, 도형, 숫자만 사용) 사용자에게 설치를 요청한다.
+- 영상 폴더는 `<프로젝트>/src/<영상명>/`이다. 영상명은 짧은 영문으로 짓는다. **이후 명령은 모두 이 폴더에서 실행한다.** 출력이 cwd 아래 `videos/`에 쌓이기 때문이다.
+
+## 1. Plan
+
+1. `${CLAUDE_SKILL_DIR}/templates/scenes.md`를 `src/<영상>/scenes.md`로 복사하고 채운다.
+   - **청중**: 누가 보는지, 무엇을 이미 아는지
+   - **핵심 개념**: 영상이 끝나면 남을 한 문장
+   - **씬 목록**: 서사 순서. 씬마다 클래스명(PascalCase), 15~30초, `##` 블록이 될 내레이션/의도 줄, 화면 요소, 다음 씬으로의 연결
+2. 사용자가 plan mode가 아니면 plan mode를 권한다. scenes.md 내용을 보여 주고 **명시적 승인**을 받는다. 수정 요청이 오면 scenes.md에 반영하고 다시 승인을 받는다.
+
+## 2. Code & Render
+
+1. `main.py` 하나에 scenes.md 순서대로 클래스를 쓴다. 형태는 `${CLAUDE_PLUGIN_ROOT}/skills/manimgl-best-practices/examples/structure.py`를 따른다.
+   - 각 클래스는 **혼자 렌더된다.** 앞 씬의 끝 상태가 필요하면 그 클래스 안에서 다시 만든다.
+   - `construct` 안의 `## …` 블록은 scenes.md의 줄과 1:1로 맞춘다.
+2. **씬 하나씩** 마지막 프레임을 확인한다.
+   ```bash
+   cd <프로젝트>/src/<영상>
+   uv run manimgl main.py <Scene> -sw        # -> videos/<Scene>.png  (-s 만 쓰면 창이 뜨고 멈춘다)
+   ```
+   - `videos/<Scene>.png`를 Read로 열어 다음을 본다.
+     - 겹침
+     - 화면 밖으로 잘린 부분
+     - 한글 □(두부)
+     - 검은 배경 대비 부족
+     - 너무 작은 글자
+     - 지웠어야 할 잔여 객체
+     - 의도와 다른 색 (`Text/Tex/Dot(color=)`는 무시된다)
+   - 문제가 있으면 고치고 같은 명령을 다시 실행한다.
+3. 영상으로 렌더한다.
+   ```bash
+   uv run manimgl main.py <Scene> -w -l      # 초안 854x480 -> videos/<Scene>.mp4
+   ```
+   - 에러가 나면 Traceback 마지막 부분을 읽고 고친 뒤 **그 씬만** 다시 렌더한다.
+   - 마지막 프레임에 안 보이는 중간 장면 문제는 mp4에서 프레임을 뽑아 본다. **scene-reviewer** 에이전트(`manimgl-skill:scene-reviewer`)에 `src/<영상>` 경로와 씬 이름을 주고 맡겨도 된다.
+4. 모든 씬이 에러 없이 나올 때까지 2~3을 반복한다.
+5. 최종본은 `uv run manimgl main.py <Scene> -w`(1920x1080 30fps)로 만든다. 같은 `videos/<Scene>.mp4`에 덮어쓴다. **모든 씬을 같은 품질 옵션으로** 렌더해야 다음 단계의 `-c copy` 이어 붙이기가 된다.
+
+## 3. Iterate
+
+1. scenes.md 순서대로 `concat.txt`를 쓰고 이어 붙인다. 경로는 concat.txt 기준이다.
+   ```
+   file 'videos/Intro.mp4'
+   file 'videos/Quantize.mp4'
+   ```
+   ```bash
+   ffmpeg -y -f concat -safe 0 -i concat.txt -c copy full.mp4
+   ```
+2. 뷰어를 **백그라운드**로 띄운다. 표준 라이브러리와 ffprobe만 쓴다.
+   ```bash
+   uv run python ${CLAUDE_SKILL_DIR}/tools/video_viewer.py full.mp4 --order concat.txt --script main.py
+   ```
+   - 출력의 `VIDEO_READY http://localhost:<port>` URL을 사용자에게 알린다. 포트는 8000~8999 중 빈 것을 쓴다.
+   - 챕터 이름은 mp4 파일명, 즉 씬 클래스명이다.
+3. 사용자는 뷰어에서 `t` 키(Capture)로 `[M:SS] <Scene>: <메모>` 줄을 만든다. **Copy** 버튼으로 복사해 대화에 붙여 넣는다.
+4. 피드백 한 줄마다 처리한다.
+   1. 그 시점의 프레임을 뽑아 Read로 본다. 사용자가 본 장면을 먼저 확인한다.
+      ```bash
+      ffmpeg -y -ss <초> -i full.mp4 -frames:v 1 fb_<초>.png
+      ```
+   2. **이름이 나온 씬 클래스만** 고친다.
+   3. 그 씬만 `-sw`로 확인한 뒤, 다른 씬과 같은 품질 옵션으로 `-w`(또는 `-w -l`) 다시 렌더한다.
+   4. concat을 다시 해서 `full.mp4`를 만든다.
+   5. **뷰어를 재시작한다.** 챕터 길이와 main.py 탭은 시작할 때 한 번만 읽는다 (`tools/video_viewer.py` `main()`).
+5. 사용자가 만족할 때까지 4를 반복한다.
+
+## 참고
+
+- 뷰어 원본은 Yusuke710/manim-skill(MIT)이다. 바꾼 점은 `tools/README.md`에 있다.
+- 자막, TTS, 보이스오버는 이 워크플로에 없다. 포크에 subcaption API가 없다.
