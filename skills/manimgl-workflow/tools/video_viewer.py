@@ -4,8 +4,9 @@
 Ported from Yusuke710/manim-skill tools/video_viewer.py
 (MIT, Copyright (c) 2025 Yusuke Miyashita; see LICENSE-manim-skill).
 Changes: utf-8 file reads (Windows/Korean), Code-tab label shows the --script file name,
-startup fails on missing/unreadable order entries or a video/order duration mismatch,
-Range end is clamped to the file size and a start past the end gets 416.
+startup fails on missing/unreadable order entries, scenes with different stream layouts,
+or a video/order duration mismatch, Range end is clamped to the file size and a start past
+the end gets 416, --srt is read as text so CRLF files parse.
 """
 
 import argparse, http.server, json, os, re, shutil, socketserver, subprocess, sys, threading, webbrowser
@@ -15,6 +16,11 @@ from urllib.parse import unquote, urlparse, parse_qs
 def get_duration(path):
     result = subprocess.run(["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", path], capture_output=True, text=True)
     return float(json.loads(result.stdout).get("format", {}).get("duration", 0)) if result.returncode == 0 else 0.0
+
+def stream_layout(path):
+    r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height,r_frame_rate,sample_rate,channels",
+                        "-of", "csv=p=0", path], capture_output=True, text=True)
+    return " | ".join(r.stdout.split())
 
 def scene_name(path):
     return re.sub(r"_\d{4}x\d{4}$", "", Path(path).stem)
@@ -183,11 +189,18 @@ def main():
     chapters = build_chapters(scenes)
     if bad := [os.path.abspath(s) for s, c in zip(scenes, chapters) if not c["duration"] > 0]:
         sys.exit("Error: no duration (ffprobe failed or 0):\n  " + "\n  ".join(bad))
+    # error, not warning: concat -c copy keeps the first file's layout, so another resolution/fps plays at the wrong
+    # size and a missing or different audio track drops or garbles the sound, with ffmpeg exiting 0
+    layouts = {os.path.abspath(s): stream_layout(s) for s in scenes}
+    if len(set(layouts.values())) > 1:
+        sys.exit("Error: scenes differ in resolution/fps/audio, so full.mp4 would be broken. Re-render them with the same flags "
+                 "(narrated videos: every scene inherits Narrated):\n  " + "\n  ".join(f"{k}: {v}" for k, v in layouts.items()))
     total, full = sum(c["duration"] for c in chapters), get_duration(args.video)
     # measured |full - total| with ffmpeg concat -c copy: <=0.00065s (2/4/10/50 sample mp4s), 0.024s (10 clips with AAC audio)
     if abs(full - total) > 0.1:
         sys.exit(f"Error: {args.video} is {full:.3f}s but order file scenes sum to {total:.3f}s. "
-                 f"Rebuild it from the same order file: ffmpeg -v error -y -f concat -safe 0 -i {args.order} -c copy {args.video}")
+                 f"Rebuild it from the same order file: ffmpeg -v error -y -f concat -safe 0 -i {args.order} -c copy -movflags +faststart {args.video} "
+                 "(narrated video: use the audio re-encoding join in references/voiceover.md §2 step 6 instead)")
     print(f"Found {len(chapters)} chapters")
 
     script_name = Path(args.script).name if args.script else "script.py"
@@ -195,7 +208,8 @@ def main():
         "video": os.path.abspath(args.video),
         "chapters": chapters,
         "ui_html": Path(__file__).with_name("ui.html").read_text(encoding="utf-8").replace(">script.py<", f">{script_name}<").replace("No script.py", f"No {script_name}").encode(),
-        "srt": (Path(args.srt).read_bytes() if args.srt else concatenate_srts(scenes).encode()) or None,
+        # read_text: universal newlines turn CRLF into LF; ui.html parseSRT splits cues on \n\n only
+        "srt": (Path(args.srt).read_text(encoding="utf-8-sig") if args.srt else concatenate_srts(scenes)).encode() or None,
         "script_content": Path(args.script).read_text(encoding="utf-8").encode() if args.script and os.path.exists(args.script) else None,
     }
 

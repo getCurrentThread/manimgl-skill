@@ -15,6 +15,8 @@
 | `-p` is presenter mode (not CE's preview). Combined with `-w`, it hangs forever at the first `play`/`wait` | `hold_loop()` in `pre_play` (F:manimlib/scene/scene.py:519-521,605,623-626). Without a window, the space key cannot be received. `-w -l -p` ended with exit 124 under `timeout 40` and `videos/` was empty [verified by run] |
 | Output accumulates in `videos/` relative to the **cwd**. The script location does not matter | F:manimlib/default_config.yml:20,23, F:manimlib/config.py:244,393. Running `../w/one.py` from another folder creates `<cwd>/videos/Only.mp4` [verified by run] |
 | Merely importing `manimlib` parses `sys.argv` as the manimgl CLI | `manim_config = initialize_manim_config()` → `parse_cli()` (F:manimlib/config.py:33,406). `python -c "import manimlib" --bogus` → `unrecognized arguments`, exit 2 [verified by run]. A tool script that imports manimlib must not take its own arguments |
+| A scene that reaches `self.embed()` without `-w`, with stdin at EOF (an agent shell, `</dev/null`), ends at once with exit 0 and writes nothing | IPython reads EOF and exits, and leaving the shell raises `EndScene` (F:manimlib/scene/scene.py:217-219) [verified by run]. A missing `-w` then looks like success. Check that the result file's mtime is new ([interactive.md](interactive.md) §1) |
+| A partial flag name that matches exactly one real flag is taken as that flag | argparse default `allow_abbrev` (F:manimlib/config.py:56). `--config camera.fps=30` becomes `--config_file camera.fps=30`, a missing file, silently skipped: no override, exit 0 [verified by run: `--config "camera.background_color=#FF0000" -sw` gave a black PNG]. `--res`, `--video`, `--skip` likewise become `--resolution`, `--video_dir`, `--skip_animations` [verified by run]. §2.1 |
 
 ## 2. All flags
 
@@ -41,7 +43,7 @@ All flags of `manimgl --help`, grouped by topic (the order differs from help). "
 | `--subdivide` | :153 | Writes `videos/<Scene>/00000.mp4`, `00001.mp4` … per animation and does not create `<Scene>.mp4` (F:manimlib/scene/scene_file_writer.py:94-95,121-123) [verified by run] |
 | `--file_name` | :159 | Replaces the scene name and the `-n` suffix. The extension is changed by `with_suffix` (F:manimlib/scene/scene_file_writer.py:88-92,104-105). So `v1.2` → `v1.mp4` and `x.mp4` → `x.mp4` [verified by run] |
 | `-n, --start_at_animation_number` | :163 | §3.2 |
-| `-e, --embed LINE` | :170 | Inserts `self.embed()` after that line and re-runs the module. If there is no scene name, it picks the nearest `class` above (F:manimlib/extract_scene.py:146-178). Without a window, `embed()` does nothing (F:manimlib/scene/scene.py:208). Source evidence |
+| `-e, --embed LINE` | :170 | Inserts `self.embed()` after that line and re-runs the module. If there is no scene name, it picks the nearest `class` above (F:manimlib/extract_scene.py:128-178). Line N must end a complete statement. A line inside a multi-line call gives `SyntaxError` (exit 1). The exception is the call's last argument line when it ends in `,`: there the shell opens before the call runs [verified by run]. With `-w` it does nothing (F:manimlib/scene/scene.py:208) [verified by run]. Details: [interactive.md](interactive.md) §3 |
 | `-f, --full_screen` | :99 | Window mode only. Makes the window width the whole monitor (F:manimlib/window.py:108). Source evidence |
 | `--always_on_top` | :104 | Window mode, Windows only. Exists only in the fork (F:manimlib/window.py:53-54,82-97). Source evidence |
 | `-p, --presenter_mode` | :109 | Pauses with `hold_loop()` in `pre_play` of the first `play`/`wait` and at every `wait`. Released only by the space or → key in the window (F:manimlib/scene/scene.py:519-521,607-610,623-626,869-870). Combined with `-w`, which has no window, it never ends (§1) [verified by run] |
@@ -53,9 +55,27 @@ All flags of `manimgl --help`, grouped by topic (the order differs from help). "
 | `-v, --version` | :213 | Used without a file, it prints only the banner and ends. With a file it is ignored and rendering proceeds (F:manimlib/__main__.py:53-57) [verified by run] |
 | `--log-level` | :218 | Changes the logger level (F:manimlib/config.py:41). With `WARNING`, the `File ready` log disappears [verified by run] |
 | `--clear-cache` | :222 | §6. Clears the entire disk cache, then runs as usual (F:manimlib/__main__.py:58-61) |
-| `--autoreload` | :227 | `embed.autoreload=True` (F:manimlib/config.py:335-337). IPython embed only. Source evidence |
+| `--autoreload` | :227 | `embed.autoreload=True` (F:manimlib/config.py:335-337). IPython embed only ([interactive.md](interactive.md) §3). Source evidence |
 
-`-ql` is parsed as `-q -l`. There is no `-w`, so a window opens and hangs. `-sql` is the same [verified by run]. `-w -ql` quietly writes an 854x480 video [verified by run].
+`-ql` is parsed as `-q -l`. There is no `-w`, so a window opens and hangs. `-sql` is the same [verified by run]. `-w -ql` quietly writes an 854x480 video [verified by run]. `-qh` (CE high quality) is `-q -h`: it prints help and exits 0 without rendering, even with `-w` [verified by run]. `-qk` exits 2 [verified by run].
+
+### 2.1 Flags from other manimgl docs that the fork does not have [verified by run]
+
+| Written | Fork result | Use instead |
+|---|---|---|
+| `-h` (meant as high quality) | prints help and renders nothing, **exit 0** | `--hd`, or nothing (1080p is the default) |
+| `-qh` (CE) | `-q -h`: help, **exit 0**, nothing written, even with `-w` | `--hd`, or nothing |
+| `--config KEY=VALUE` | taken as `--config_file` (§1), ignored, **exit 0** | `custom_config.yml` (§5.1) or `--config_file PATH` |
+| `--resolution 1920,1080` | `ValueError: invalid literal for int()`, exit 1 (F:manimlib/config.py:359) | `-r 1920x1080` |
+| `-o out.mp4` | exit 2, `unrecognized arguments: out.mp4`. `-o` takes no value | `--file_name out` |
+| `-e` with no line number | exit 2, `expected one argument` | `-e LINE` ([interactive.md](interactive.md) §3) |
+| `--frame_rate 30` | exit 2 | `--fps 30` |
+| `--format gif` | exit 2 | `-i` |
+| `--verbose`, `--debug` | exit 2 | `--log-level DEBUG` |
+| `--fullscreen`, `--high_quality`, `--skip_to N`, `--list_scenes`, `--profile`, `--timing` | exit 2 | `-f` / `--hd` / `-n N` / none |
+| `-l` = 15fps, `-h`/`--uhd` = 60fps | every preset keeps 30fps (§3.1) | `--fps N` |
+
+- A loop such as `for s in A B; do manimgl f.py $s -h -w; done` exits 0 every time and writes no files.
 
 ## 3. Meanings verified by running
 
@@ -74,6 +94,9 @@ All flags of `manimgl --help`, grouped by topic (the order differs from help). "
 - If the aspect ratio changes, `FRAME_HEIGHT` stays 8 and `FRAME_WIDTH` follows the ratio (F:manimlib/constants.py:13-20).
   - `-r 1080x1920` gives 4.5, `-r 1000x1000` gives 8.0 [verified by run].
   - Make vertical videos with `-r 1080x1920`, and lay out the content for a width of 4.5.
+  - Or keep the 8-unit width: put `sizes: {frame_height: 14.222222222222221}` in `custom_config.yml` and render with `-r 1080x1920`. The frame is then 8 wide and 14.22 tall (F:manimlib/constants.py:19-20) [verified by run: at `-r 540x960` a frame-sized rectangle filled the PNG and a 2-unit square took 1/4 of the width].
+    - This changes every scene run from that cwd. `camera_config: {frame_width, frame_height}` from other guides is silently ignored (§5.1).
+    - Every render then needs a portrait size: `-w -l` gives 854x480 landscape with a 25.3-wide frame [verified by run]. Draft with `-w -r 540x960`, or put `camera: {resolution: "(1080, 1920)"}` and `resolution_options: {low: "(540, 960)"}` in the same custom_config.yml (quoted: see §5.1), so that plain `-w` and `-w -l` stay portrait [verified by run: both gave an 8.0 x 14.22 frame].
 
 ### 3.2 `-n` (animation number) [verified by run]
 
@@ -117,6 +140,8 @@ All flags of `manimgl --help`, grouped by topic (the order differs from help). "
 | `-c` invalid color, unknown flag | 2 | None |
 | Scene selection prompt + EOF | 1 | None |
 | `--config_file` path missing, `-n` out of range | **0** | The config is ignored / an empty mp4 is created |
+| `-h` (§2.1), window mode reaching `self.embed()` with stdin EOF (§1) | **0** | None |
+| `--config KEY=VALUE` (§2.1) | **0** | The result, rendered without the override |
 
 - In `Scene.run`, only `EndScene` and `KeyboardInterrupt` are caught (F:manimlib/scene/scene.py:155-164). Anything else propagates and the process fails.
 - On Ctrl-C, the `_temp` file is not moved to its final name and the normal exit path is taken (F:manimlib/scene/scene.py:160-164, F:manimlib/scene/scene_file_writer.py:298-301). This is source evidence; the exit code was not checked.
@@ -176,6 +201,30 @@ Unknown keys [verified by run]:
 
 `crf`, `bundle_draws`, `draw_together`, and `invert_zoom_scroll` exist only in upstream (U:manimlib/scene/scene_file_writer.py:52, U:manimlib/default_config.yml:56,59,87). If you use a config file written for upstream as is, rendering does not start.
 
+### 5.1 Keys the fork reads
+
+- Sections: `directories`, `window`, `camera`, `file_writer`, `scene`, `vmobject`, `mobject`, `tex`, `text`, `embed`, `resolution_options`, `sizes`, `key_bindings`, `colors`. Top-level keys: `log_level`, `universal_import_line`, `ignore_manimlib_modules_on_reload` (F:manimlib/default_config.yml:11-196).
+- Other top-level names are **ignored with no warning**. That includes the section names in many manimgl guides: `camera_config`, `window_config`, `style`, `tex_config` [verified by run: such a yml with 854x480 15fps rendered 1920x1080 30fps into `videos/`, exit 0].
+- `directories.output` is overwritten with `<base>/<subdirs.output>` (F:manimlib/config.py:240-244). Set `directories: {subdirs: {output: media/videos}}` or `directories: {base: out}` instead [verified by run].
+- `camera.resolution`, `window.size`, `window.position` are Python tuple **strings** passed to `literal_eval` (F:manimlib/config.py:247-251,261). Write `resolution: (854, 480)`.
+  - In a `{...}` flow mapping, quote the tuple: `camera: {resolution: "(854, 480)"}`. Unquoted, YAML splits the entry at the comma (`'(854'`, `'480)'`) and every render exits 1 with `SyntaxError: '(' was never closed` [verified by run: `-sw`, `-sw -l`, `-w -l`].
+  - A YAML list `[854, 480]` fails with `ValueError: malformed node or string`, and `"854x480"` with `SyntaxError`. Both exit 1 [verified by run].
+  - Only renders without `-l`/`-m`/`--hd`/`--uhd`/`-r` read `camera.resolution` (F:manimlib/config.py:261), so a list passes the `-w -l` drafts and then fails the final `-w` [verified by run: `-sw` exit 1, `-sw -l` and `-w -l` exit 0]. Check a new custom_config.yml with `-sw` and no resolution flag.
+  - `window.size` is parsed even when no window opens, so a bad value breaks headless renders too [verified by run: `size: [960, 540]` with `-sw` exit 1, `(960, 540)` exit 0].
+- `custom_config.yml` is opened without `encoding=` (F:manimlib/config.py:345). Keep it ASCII. Source evidence (not run under cp949).
+
+| Key | Effect | Evidence |
+|---|---|---|
+| `camera: {resolution: "(854, 480)", fps: 15, background_color: "#1E1E1E"}` | Project defaults. CLI flags still win (§5 order) | [verified by run] |
+| `resolution_options: {low: "(640, 360)"}` | What `-l` means. Also `med`, `high`, `4k` | F:manimlib/config.py:357-368 [verified by run] |
+| `sizes: {frame_height: 10}` | `FRAME_HEIGHT` = 10, `FRAME_WIDTH` = 10 × aspect (F:manimlib/constants.py:19-20). Also `small_buff`, `med_small_buff`, `med_large_buff`, `large_buff`, `default_mobject_to_edge_buff`, `default_mobject_to_mobject_buff` | [verified by run: 17.79 x 10, `SMALL_BUFF` 0.2] |
+| `text: {font: "Noto Serif KR"}` | Default `Text` font | [verified by run] |
+| `vmobject: {default_stroke_width: 4.0}` | Default stroke width (fork default 2.0) | [verified by run: `Square()` stroke 4.0] |
+| `scene: {default_wait_time: 0.5}` | `self.wait()` with no argument | [verified by run: config value only] |
+| `colors: {blue_c: "#FF0000"}` | Redefines a named color. `BLUE = BLUE_C` (F:manimlib/constants.py:140), so `BLUE` changes. Only names already in the default yml work (`red_c`, `white`). `red:` changes nothing | [verified by run] |
+| `embed: {exception_mode: Minimal, autoreload: true}` | IPython traceback style and per-cell reload ([interactive.md](interactive.md)) | F:manimlib/default_config.yml:95-97. Source evidence |
+| `window: {position_string: DL, monitor_index: 1, size: "(960, 540)"}` | Preview window placement | F:manimlib/default_config.yml:41-53. Only headless renders with this line were run (`-sw`, `-w -l` exit 0) |
+
 ## 6. Cache
 
 | What | Where | Evidence |
@@ -220,6 +269,12 @@ uv run manimgl main.py Intro Body Outro -w -l </dev/null
 ```
 
 - Judge success by the exit code. On failure, `<Scene>_temp.mp4` and the old `<Scene>.mp4` remain (§3.4).
+- Scenes listed in one command share one random stream.
+  - Every scene object is built before any `construct` runs (F:manimlib/extract_scene.py:106-109). Each `Scene.__init__` reseeds `random` and `np.random` with its `random_seed` (default 0, F:manimlib/scene/scene.py:53,139-141).
+  - So the last-built scene's seed wins, and each later scene continues where the previous one stopped.
+  - A scene that uses `random_color()` (np.random, F:manimlib/utils/color.py:132-133), `random` or `np.random` then gets different values batched than alone. Re-rendering only that scene changes its look [verified by run: B alone gave `#8cb69a`, `A B` gave B `#70e3f6`].
+  - A `random_seed = 41` class attribute does not fix this: with `S T`, S got T's seed-0 values [verified by run]. A file-top `seed(41)` never reaches `construct` [verified by run].
+  - Fix: make `random.seed(41); np.random.seed(41)` the first line of `construct` (`random` and `np` come with `from manimlib import *`). The scene then gives the same values alone and batched [verified by run].
 - Scenes to be joined with `ffmpeg -f concat … -c copy` must have the same resolution, fps, and codec. Render them all with the same options (`-w -l` or `-w`).
 - Do not use: `-p` (hangs), `-s` alone, `-ql`/`-sql` (no `-w`), `-a` alone, `-o`/`--finder` (an external player opens).
 - If you need a transparent-background source, use `-w -t` → `.mov` (ProRes, `yuva444p12le`). This file cannot be mixed into an mp4 concat.

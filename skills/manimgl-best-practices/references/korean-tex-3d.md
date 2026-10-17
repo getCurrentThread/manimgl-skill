@@ -43,7 +43,7 @@ Selection:
 |---|---|
 | `t = Text("가나 가나 다가나")`, `t["가나"]` | VGroup of 3 parts. It selects all of them, not only the first, and ignores word boundaries (including the one inside `다가나`) |
 | `t.select_part("가나", 1)` | Selects only the second occurrence (counted from 0) |
-| `t[re.compile(r"값\d")]` (`Text("값1 값2 값3")`) | 3 |
+| `Text("값1 값2 값3")[re.compile(r"값\d")]` | 3 |
 
 - Evidence: `__getitem__` → `select_parts` → `select_unisolated_substring` (F:manimlib/mobject/svg/string_mobject.py:542-573), `select_part` (F:manimlib/mobject/svg/string_mobject.py:554).
 - Indices are counted as the number of non-space characters in the string (F:manimlib/mobject/svg/string_mobject.py:557-571).
@@ -142,6 +142,7 @@ couldn't load font "Some Missing Font Not-Rotated 48", falling back to "Sans Not
   - In that case add `\usepackage{xcolor}`.
 - The size calibration compiles `"0"` without a template argument. That is, it uses the setting `tex.template` (default `default`) (F:manimlib/mobject/svg/tex_mobject.py:25-32, F:manimlib/utils/tex_file_writing.py:35).
   - So even if you only use xelatex templates, the default template (latex and its packages) must compile unless you changed the setting. Source evidence.
+- Multi-line equations (`&`, `\\`) and string-selection rules (`eq["x"]` is exact only for substrings listed in `t2c=`/`isolate=`) are in [style-and-color.md](style-and-color.md) §G.
 
 ### B2. All of `tex_templates.yml` (F:manimlib/tex_templates.yml)
 
@@ -219,7 +220,7 @@ How I checked: removed TeX from PATH, pointed `directories.cache` in `custom_con
 | Needs it | Where the inner Tex is created |
 |---|---|
 | `Tex`, `TexText` | - |
-| `Brace`, `BraceLabel`, `BraceText` | `Brace(Tex)` F:manimlib/mobject/svg/brace.py:32. Label constructors F:manimlib/mobject/svg/brace.py:111,176 |
+| `Brace`, `BraceLabel`, `BraceText` | `Brace` is a `Tex` subclass (F:manimlib/mobject/svg/brace.py:32). Label constructors F:manimlib/mobject/svg/brace.py:111,176 |
 | `Matrix`, `IntegerMatrix`, `DecimalMatrix` (even if the entries are floats) | The brackets are always Tex (F:manimlib/mobject/matrix.py:120). String entries F:manimlib/mobject/matrix.py:117. `\vdots`/`\hdots` F:manimlib/mobject/matrix.py:189,195 |
 | `Axes.get_axis_labels`, `get_x_axis_label`, `get_y_axis_label` | F:manimlib/mobject/coordinate_systems.py:143 |
 | `get_graph_label` (string label) | F:manimlib/mobject/coordinate_systems.py:294 |
@@ -277,6 +278,11 @@ There are two caches.
 - Starting orientation:
   - On creation it calls `frame.reorient(*default_frame_orientation)` and then `make_orientation_default()` (F:manimlib/scene/scene.py:113-114).
   - So setting `default_frame_orientation = (θ, φ)` on a Scene subclass starts a tilted 2D scene. Source evidence.
+- A plain `Scene` tilted with `reorient` is not a substitute for ThreeDScene once surfaces and lines mix [verified by run].
+  - Surfaces still depth-test among themselves, because `Surface` sets `depth_test=True` in its constructor (F:manimlib/mobject/types/surface.py:48).
+  - Axes, Text, and other VMobjects get no depth test and draw in add order.
+  - With `reorient(20, 70)`, a `Sphere` added after a `ThreeDAxes` covered the y-axis segment that is in front of it. ThreeDScene drew that segment over the sphere.
+  - Tilting a flat 2D scene in `Scene` is fine.
 - VMobject's `apply_depth_test` sets `anti_alias_width` to 0 (F:manimlib/mobject/types/vectorized_mobject.py:423-430). In ThreeDScene, samples=4 compensates for this. Source evidence.
 - `ThreeDScene.add` only checks `is_fixed_in_frame()` of the top-level mob (F:manimlib/scene/scene.py:953).
   - Upstream changed this to check per family (U:manimlib/scene/scene.py:934-943). The reason given in the comment is "fixed text disappears from the depth test during FadeTransform".
@@ -305,8 +311,35 @@ There are two caches.
 | `set_euler_axes` | `(seq)` | Default `"zxz"` | :208-209, :30 |
 
 - The rotation is `Rotation.from_euler("zxz", [γ, φ, θ])`, that is, R = Rz(θ)·Rx(φ)·Rz(γ) (:152).
-- Animate with `self.play(self.frame.animate.reorient(...))`. Interpolation takes the short path of the quaternion. Fork only (:121-130).
-- `set_camera_orientation`, `move_camera`, and `begin_ambient_camera_rotation` do not exist [verified by run].
+- Animate with `self.play(self.frame.animate.reorient(...))`, but only for turns under 180°. Interpolation takes the short path of the quaternion (fork only, :121-130), so larger turns go wrong (§C8).
+- `set_camera_orientation`, `move_camera`, `begin_ambient_camera_rotation`, and `frame.set_center` do not exist [verified by run]. Move the frame with `move_to` or `reorient(center=...)`.
+- `self.frame.copy()` is not a second camera. A fixed-in-frame copy meant as picture-in-picture drew nothing, and the main frame was unchanged [verified by run].
+
+Reading θ, φ under the default `zxz` axes [verified by run: `get_implied_camera_location`, columns of `get_orientation().as_matrix()`]:
+
+| `reorient(θ, φ)` | Implied camera position | Screen right / up | What you see |
+|---|---|---|---|
+| (0, 0) | (0, 0, 9.66) | +x / +y | XY plane from above. The 2D default |
+| (0, 90) | (0, -9.66, 0) | +x / +z | XZ plane from the front (-y side), z up |
+| (90, 90) | (9.66, 0, 0) | +y / +z | YZ plane from +x |
+| (-90, 90) | (-9.66, 0, 0) | -y / +z | YZ plane from -x |
+| (-30, 70) | (-4.54, -7.86, 3.30) | | ThreeDScene default |
+
+- φ is measured from straight above (0) to level (90). θ turns the camera about world z.
+- Negative φ does not mean "looking from below". `reorient(45, -30)` puts the camera where `reorient(225, 30)` does, but rolled 180°, so z points down on screen. `get_euler_angles` reads it back as (-135, 30, 180) [verified by run].
+- Omitted angles keep the current value, roll included. `reorient` passes None through (:223), and `set_euler_angles` fills None from `get_euler_angles()` (:145-148).
+  - After `reorient(45, -30)`, `reorient(30)` gives (30, 30, 180), which is upside down [verified by run].
+  - Write all three angles, `reorient(θ, φ, 0)`, whenever a roll may be present: after a negative φ, `set_floor_plane("xz")`, or `increment_gamma`.
+
+`self.set_floor_plane("xz")` (y up):
+- It only switches the frame's Euler axes to `"zxy"` (F:manimlib/scene/scene.py:728-734). Upstream is the same (U:manimlib/scene/scene.py:725).
+- θ then turns about world y. `add_ambient_rotation(90 * DEG)` moved the camera from (-4.54, 3.30, 7.86) to (7.86, 3.30, 4.54) in 1 s [verified by run].
+- **Negative φ looks down on the floor.** `reorient(30, -20)` puts the camera at y = +3.30. `reorient(30, 20)` puts it at y = -3.30, under the floor [verified by run].
+- Under `zxy`, φ is minus the elevation above the floor (φ = -elevation): 0 = level, -90 = straight down from above. That is the reverse of `zxz`, where 0 is straight down. The ThreeDScene default view (-30, 70) becomes `reorient(-30, -20, 0)` here (camera at 20° elevation, as under `zxz`), not (-30, -70, 0), which is at 70° elevation and looks almost straight down [verified by run].
+- `increment_phi` clips φ to [-90°, 90°] under `zxy` (:169-170).
+- In ThreeDScene, give γ. The starting (-30, 70) was built under `zxz`, and read back under `zxy` it is (-53.9, 54.5, -59.4).
+  - `reorient(-30, -20)` kept that γ and turned the floor into a slanted wall. `reorient(-30, -20, 0)` gave a level floor [verified by run].
+- So call `self.set_floor_plane("xz")` first, then `self.frame.reorient(θ, φ, 0)`. Code that uses negative φ for a downward view expects this floor plane. Under the default axes it comes out rolled (above).
 
 ### C3. 3D objects
 
@@ -336,8 +369,26 @@ Shape confirmed by rendering [verified by run]: `Sphere`, `Torus`, `Cylinder`, `
 
 - Missing [verified by run]: `Dot3D`, `Arrow3D`, `Cuboid`, `Polyhedron`, `Tetrahedron`, `Octahedron`, `Icosahedron`.
 - For points, use `GlowDot`, `TrueDot`, `DotCloud`.
-- Sort the faces of a translucent surface with `surface.always_sort_to_camera(self.camera)` (F:manimlib/mobject/types/surface.py:249-254). Source evidence.
+- Group surfaces, `GlowDot`/`TrueDot`/`DotCloud` and images with `Group(...)`. `VGroup` raises `Exception: Only VMobjects can be passed into VGroup` for them (F:manimlib/mobject/types/vectorized_mobject.py:1312-1316) [verified by run].
+- Sort the faces of a translucent surface with `surface.always_sort_to_camera(self.camera)` (F:manimlib/mobject/types/surface.py:249-254). It removed the dark crescent on a translucent sphere, but objects added after the surface stay hidden [verified by run, §C7].
   - Upstream's `set_sort_to_camera` does not exist in the fork.
+
+Constructor pitfalls [verified by run]:
+
+| Code | Result | Use instead |
+|---|---|---|
+| `Surface(lambda u, v: ...)` | `Exception: Invalid color type`. The first parameter is `color`; the shape comes from the overridable `uv_func` method (F:manimlib/mobject/types/surface.py:44-46,78-80) | `ParametricSurface(func, u_range=..., v_range=..., resolution=...)` or `ThreeDAxes.get_graph` |
+| `Cube(color=GREEN, fill_opacity=0.8)` | `TypeError: Mobject.__init__() got an unexpected keyword argument 'fill_opacity'`. Surfaces are not VMobjects, and `Cube` passes `**kwargs` to `SGroup` (F:manimlib/mobject/three_dimensions.py:270-287) | `Cube(color=GREEN, opacity=0.8)` |
+| `Line3D(start=[-2, -2, -2], end=[2, 2, 2])` | `TypeError: unsupported operand type(s) for -: 'list' and 'list'` from `end - start` (F:manimlib/mobject/three_dimensions.py:201). Upstream is the same (U:manimlib/mobject/three_dimensions.py:195) | `np.array([...])`, or constants such as `2 * OUT` |
+| `TexturedSurface(surface=s, image_file=f)` | `TypeError: ... missing 1 required positional argument: 'uv_surface'` (F:manimlib/mobject/types/surface.py:305-311) | `TexturedSurface(s, f)` |
+
+- Unlike several 2D classes (SKILL.md §6), the constructor `color=` is applied on `Sphere`, `Torus`, `Cylinder`, `Disk3D`, `Square3D`, and `Cube`, and `opacity=` on `Sphere` and `Cube` [verified by run].
+
+`TexturedSurface`:
+- `TexturedSurface(Sphere(radius=2), "file.png")` rendered with `FadeIn`, `ShowCreation`, and ambient rotation [verified by run].
+- `get_opacity()` raises `ValueError: no field of name rgba` [verified by run]. Its data has an `opacity` field instead of `rgba` (F:manimlib/mobject/types/surface.py:298-303, F:manimlib/mobject/mobject.py:1409-1410).
+- `set_opacity`, `set_color`, `set_shading`, `copy()`, and `SurfaceMesh(textured)` work [verified by run]. `set_opacity`/`set_color` are overridden (F:manimlib/mobject/types/surface.py:370-380).
+- A URL `image_file` is downloaded with `urlretrieve` on every construction, with no existence check (F:manimlib/mobject/types/surface.py:322, F:manimlib/utils/file_ops.py:33-42). Every render then needs the network. Download once and pass the local path. Source evidence.
 
 ### C4. Shading [verified by run]
 
@@ -347,6 +398,15 @@ Shape confirmed by rendering [verified by run]: `Sphere`, `Torus`, `Cylinder`, `
   - The default `(0.3, 0.2, 0.4)` gives gentle shading.
   - `(0.8, 0.8, 0.8)` gives a strong highlight.
 - The default shading of Text is (0, 0, 0).
+- `set_reflectiveness(x)`, `set_gloss(x)`, `set_shadow(x)` each set one component of `set_shading` (F:manimlib/mobject/mobject.py:1471-1481). `Sphere().set_gloss(0.8).set_shadow(0.5).get_shading()` → (0.3, 0.8, 0.5).
+
+Light source:
+- The light is `self.camera.light_source`, a `Point` at world (-10, 10, 10) (F:manimlib/camera/camera.py:42,97-98). Its position is read every frame (F:manimlib/camera/camera.py:241).
+- Each of these moved a sphere's highlight from the upper left to the lower right:
+  - `self.camera.light_source.move_to([10, -10, -10])`
+  - `self.play(self.camera.light_source.animate.move_to([10, -10, -10]))`. The play adds the Point to the scene; it draws nothing.
+  - The class attribute `default_camera_config = dict(light_source_position=[10, -10, -10])`
+- The light does not follow the camera. At `reorient(150, 70)` the highlight sat at the upper right, so a camera orbit sweeps the highlight across the object.
 
 ### C5. `fix_in_frame`
 
@@ -377,6 +437,15 @@ label.rotate(phi, RIGHT).rotate(theta, OUT).move_to(p)
 - Tex is the same. I checked by billboarding `Tex(R"z = f(x, y)")` in a ThreeDScene.
 - The calculation is done once, so you must rotate again if the camera moves. For text that must read regardless of the camera, use `fix_in_frame`.
 - In `ThreeDAxes.add_axis_labels`, the x and y labels lie in the xy plane, and only the z label is stood up by 90° around the RIGHT axis (F:manimlib/mobject/coordinate_systems.py:574-583). Source evidence.
+- `ThreeDAxes.add_coordinate_labels()` numbers only the x and y axes, flat in the xy plane. It zips the axes with `[x_values, y_values]` (F:manimlib/mobject/coordinate_systems.py:529). It returned 2 groups of 6 numbers for x(-3, 3), y(-3, 3), z(-2, 2).
+  - Add z numbers yourself, stood up like the z label. They read upright at (-30, 70):
+
+```python
+z_nums = VGroup(*(
+    Integer(n, font_size=24).rotate(90 * DEG, RIGHT).next_to(axes.c2p(0, 0, n), LEFT, buff=0.15)
+    for n in (-2, -1, 1, 2)
+))
+```
 
 ### C7. depth test pitfalls [verified by run]
 
@@ -400,3 +469,65 @@ Workarounds:
 - Or use `fix_in_frame()`.
 - Or add it before the surface. With a translucent surface, both the text above and below the surface are visible. The edge artifact remains.
 - Moving the label closer to the camera than the surface does not fix it.
+
+Translucent surfaces. Setup: ThreeDScene (-30, 70), `Sphere(radius=1.4, color=BLUE, opacity=0.4)` with a red `Cube(side_length=0.8)` inside.
+
+| Case | Result |
+|---|---|
+| A: cube added after the sphere | Cube invisible. A dark crescent shows at the sphere's edge |
+| B: cube added before | Cube visible, tinted by the sphere. Crescent remains |
+| C: `always_sort_to_camera` + cube after | Cube invisible. No crescent |
+| D: `self.add(sphere, set_depth_test=False)` + cube after | Same as A. `sphere.depth_test` stayed True |
+| E: `sphere.deactivate_depth_test()` + cube after | Cube visible but drawn over the sphere, untinted |
+| F: `always_sort_to_camera` + cube before | Cube visible and tinted, no crescent. **Use this** |
+
+- A translucent surface still writes depth. `opacity < 1` alone does not reveal objects added after it.
+- D fails because `Surface` sets `depth_test=True` in its constructor (F:manimlib/mobject/types/surface.py:48), and `set_depth_test=False` only skips turning it on (F:manimlib/scene/scene.py:951-954).
+- The crescent is probably the draw order of front and back faces. That is inference; the shader was not checked.
+- Only this one sphere-and-cube setup at (-30, 70) was rendered.
+- An object that must be added later can take `set_z_index(-1)` instead. `Scene.add` sorts `self.mobjects` by z_index on every add (F:manimlib/scene/scene.py:336-338), so it is drawn before the surface. A ball added after a translucent bowl stayed visible and tinted; without it the ball vanished [verified by run, gallery/gradient_descent.py]. Set it before the add: `self.add(cube); cube.set_z_index(-1)` left the cube hidden, because nothing re-sorts until the next `add` [verified by run].
+
+### C8. Animating the camera [verified by run]
+
+Setup: ThreeDScene, start θ = -30, `run_time=2`, `rate_func=linear`, θ logged on every rendered frame of a `-w -l` render. All exited 0.
+
+| Code | θ over the play |
+|---|---|
+| `frame.animate.increment_theta(360 * DEG)` | -30 throughout. **No motion**; frames at 0, 0.7, 1.3 s identical |
+| `frame.animate.increment_theta(270 * DEG)` | -30 → -120. Turns **-90°**, the other way |
+| `frame.animate.reorient(200, 70)` | -30 → -160 (= 200). Turns -130° instead of +230° |
+| `frame.animate.increment_theta(180 * DEG)` | -30 → 150, positive this time. 180° sits on the flip boundary (quaternion dot product 0), so do not rely on the direction |
+| `frame.animate.increment_theta(170 * DEG)` | -30 → 140, at uneven speed: about 15° per 1/8 of the run at the ends, 27.5° in the middle |
+| `Rotate(frame, TAU, axis=OUT)` | -30, 138, -30, 48, -120, 96, 60, -84, 150. Erratic |
+| 4 × `frame.animate.increment_theta(90 * DEG)` | Full turn, back to -30 |
+| `UpdateFromAlphaFunc(frame, lambda m, a: m.set_theta(t0 + a * TAU))` | Even steps, full turn |
+| `add_ambient_rotation(180 * DEG)` + `wait(2)` | Even steps, full turn |
+
+Why:
+- `.animate` on the frame blends the orientation quaternion component by component (F:manimlib/mobject/mobject.py:1836). The fork then flips the target quaternion to the side nearer the start (F:manimlib/camera/camera_frame.py:121-130).
+  - A +360° target is the same orientation as the start, so nothing moves. Above 180°, the other way round is shorter.
+  - With φ and γ fixed, the turn between the two orientations is exactly Δθ about z, so the limit is 180° of θ.
+- Component-wise blending is a lerp, not a slerp, so `linear` still gives uneven angular speed. 90° legs varied by about ±8% (examples/camera_orbit.py).
+- `Rotate` restores only point data each frame and then calls `rotate` (F:manimlib/animation/rotation.py:42-55). `CameraFrame.rotate` composes onto the current orientation (F:manimlib/camera/camera_frame.py:132-136), which is not restored, so the turn piles up.
+- Upstream has no `CameraFrame.interpolate` override (no `def interpolate` in U:manimlib/camera/camera_frame.py; the only match is the comment at :27). Upstream was not run, so its behavior is not claimed here.
+
+Recipes (all in [examples/camera_orbit.py](../examples/camera_orbit.py)):
+- Under 180°: `self.play(self.frame.animate.reorient(θ, φ, 0))`.
+- Changing θ and φ a lot in one `.animate` also rolls the view mid-move, though both ends have γ = 0: (-30, 70, 0) → (140, 10, 0) peaked at γ = 47° [verified by run]. Split it into a θ leg and a φ leg (each stayed at γ = 0), or drive both angles: `self.play(UpdateFromAlphaFunc(self.frame, lambda m, a: m.set_euler_angles(theta=t0 + a * dt, phi=p0 + a * dp, gamma=0)), rate_func=linear)`, with `t0, p0 = self.frame.get_euler_angles()[:2]` (radians).
+- Full or long turn in one play, at constant speed:
+
+```python
+t0 = self.frame.get_theta()
+self.play(UpdateFromAlphaFunc(self.frame, lambda m, a: m.set_theta(t0 + a * TAU)), run_time=8, rate_func=linear)
+```
+
+- Long turn with `.animate`: chain legs under 180°, with `rate_func=linear` so it does not pause between legs.
+- Open-ended: `self.frame.add_ambient_rotation(45 * DEG)` (rad/s), `self.wait(t)`, `self.frame.clear_updaters()`. Then settle on an exact view with `.animate.reorient(θ, φ, 0)`.
+  - The `-sw` PNG matched the last mp4 frame, because the final view is absolute. Time updaters alone can end differently under `-sw` (SKILL.md §10).
+- `frame.add_updater(lambda m, dt: m.increment_theta(20 * dt))` is 20 **rad**/s, about 3 turns per second. `increment_theta` takes radians (F:manimlib/camera/camera_frame.py:239-240). Write `20 * DEG * dt`, or use `add_ambient_rotation(20 * DEG)`. Source evidence.
+
+Follow-cam (probed in a 2D `Scene`):
+- `self.frame.add_updater(lambda m: m.move_to(dot))` keeps the frame on a moving object. Stop it with `self.frame.clear_updaters()`.
+  - The frame is in `self.mobjects` (F:manimlib/scene/scene.py:117), and animations do not suspend its updaters by default (`suspend_mobject_updating=False`, F:manimlib/animation/animation.py:43).
+- It kept following during `self.play(dot.animate.shift(UP * 3), self.frame.animate.set_height(4))`: frame center (5, 3, 0) = dot, height 4.0.
+- `Scene.clear()` removes the frame and stops its updaters (SKILL.md §9).

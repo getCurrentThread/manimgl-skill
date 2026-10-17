@@ -5,15 +5,13 @@ Render (from the folder that holds this file):
     uv run manimgl structure.py Intro -w      # movie      -> videos/Intro.mp4
 """
 from manimlib import *
-from random import seed
-
-# random_color() uses np.random, random_bright_color() uses random -> seed both
-seed(41)
-np.random.seed(41)
 
 
 class Intro(Scene):
     def construct(self):
+        # Seed here: Scene.__init__ reseeds with random_seed (default 0), and `manimgl structure.py Intro Quantize`
+        # builds both scenes before Intro runs (F:manimlib/scene/scene.py:139-141, F:manimlib/extract_scene.py:106-109)
+        random.seed(41); np.random.seed(41)
         ## A model is a big matrix of numbers
         title = Text("모델 압축", font_size=40).to_edge(UP, buff=0.5)
         box = Rectangle(width=4, height=3, color=GREY_C)
@@ -27,6 +25,7 @@ class Intro(Scene):
             for _ in range(16)
         ])
         weights.arrange_in_grid(4, 4, buff=0.1).move_to(box)
+        # FadeIn(scale=s) starts at 1/s size: 0.5 shrinks in from double size
         self.play(LaggedStart(*[FadeIn(w, scale=0.5) for w in weights], lag_ratio=0.05))
         self.wait()
 

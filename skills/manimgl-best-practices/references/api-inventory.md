@@ -1,6 +1,6 @@
 # Fork class list (Scene / Animation / Mobject, based on `from manimlib import *`)
 
-- How it was made: auto-generated in an environment with fork @455a4201 installed, by grouping the classes that `from manimlib import *` brings in by base class. It is not a hand-copied list.
+- How it was made: auto-generated in an environment with fork @455a4201 installed, by grouping the classes that `from manimlib import *` brings in by base class. It is not a hand-copied list. Re-check with `uv run --project <uv project> python ${CLAUDE_PLUGIN_ROOT}/scripts/check_inventory.py` (exit 0 = no drift).
 - Scope: only subclasses of Scene, Animation and Mobject are listed. Functions (`always_redraw`), rate functions (`smooth`), constants (`UP`, `BLUE`, `DEG`) and other classes (`Camera`, `CoordinateSystem`) come in through star-import even though they are not in the list.
 - Scene/Animation/Mobject classes not listed here cannot be used through star-import. Example: `OldTex` and `OldTexText` are not exported (defined at F:manimlib/mobject/svg/old_tex_mobject.py:181,317).
 - Check signatures directly in the installed source.

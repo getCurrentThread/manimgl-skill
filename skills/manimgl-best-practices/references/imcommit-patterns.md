@@ -47,6 +47,8 @@
 - Inside `construct`, blocks are separated by `## <short label or one line of narration>` comments (e.g. src/bondinterest/main.py:12,31,45).
   - There are 1111 `##` lines. Most are implementation notes (`## nl`, `## lines`, `## intro`); only some are narration sentences.
 - File header: `from manimlib import *`, `from raenimgl import *`, `from random import seed`, `seed(41)`, `np.random.seed(41)` (init_project.py:5-10).
+  - These module-level seeds are no-ops for the scenes. `Scene.__init__` reseeds both RNGs with the class attribute `random_seed`, default 0 (F:manimlib/scene/scene.py:53,139-141), and raenimgl does not override it [verified by run].
+  - So a solo imcommit render runs with seed 0, and in a batch each later scene continues the previous scene's random stream. To pick a seed that also holds when several scenes are rendered in one command, make `random.seed(41); np.random.seed(41)` the first line of `construct`. A `random_seed = 41` class attribute holds only for a solo render ([cli-and-output.md](cli-and-output.md) §7) [verified by run].
 
 ## Playback wrappers (raenimgl)
 
@@ -118,6 +120,15 @@
   - 0.7: 10 times
 - `rate_func` is mostly the default (smooth).
 - Waiting is mostly the default wait(1) in `playw`.
+
+## Targets
+
+- `generate_target()` is called 92 times and `MoveToTarget` 83 times, in 18 files (AST count of calls by that name).
+- Typical uses:
+  - Arrange several targets and a new object together, then move them in one play (src/bondinterest/main.py:546-565).
+  - Chain `generate_target().arrange(...).move_to(...)` on a group (src/CFMvsDiffusion/main.py:162-165).
+  - Edit `target[i]` in a loop (src/CFMvsDiffusion/main.py:350-353).
+- Semantics and the failure mode without `generate_target()`: [animation-semantics.md](animation-semantics.md) §2.
 
 ## Korean text
 

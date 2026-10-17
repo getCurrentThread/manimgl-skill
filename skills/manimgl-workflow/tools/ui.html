@@ -183,6 +183,7 @@
         /* Controls overlay */
         .controls { position: absolute; bottom: 0; left: 0; right: 0; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); z-index: 20; }
         .btn { background: transparent; border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 6px; transition: background 0.15s; font-family: inherit; }
+        [hidden] { display: none !important; } /* .btn's display:flex would otherwise show the hidden CC button */
         .btn:hover { background: rgba(255,255,255,0.1); }
         .btn.active { background: rgba(255,255,255,0.2); }
         .play-btn { width: 40px; height: 40px; border-radius: 50%; }

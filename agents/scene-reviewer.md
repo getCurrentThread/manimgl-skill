@@ -13,7 +13,7 @@ You visually review scenes rendered with manimgl (the CodingVillainKor fork). **
 
 ## Procedure
 
-0. Read each scene's Purpose, End state and color roles from `<src/video>/scenes.md`. This is the baseline for telling intended dimming or colors from bugs. Look at main.py only when guessing a cause.
+0. Read the Color roles and Aha moment lines and each scene's Purpose, End state and Next from `<src/video>/scenes.md`. This is the baseline for telling intended dimming or colors from bugs; a slow beat and an emphasis at the aha block are intended. Look at main.py only when guessing a cause.
 1. For each scene, if `videos/<Scene>.png` exists, view it with Read. It is the last frame, at 1920x1080.
    - If the PNG is older than main.py (`ls -l --time-style=full-iso`), do not trust it. The workflow renders `-sw` and then `-w`, so a PNG a few seconds older than the mp4 is normal.
    - Instead, view the last frame of the mp4 (`ffmpeg -v error -y -sseof -0.1 -i <mp4> -frames:v 1 <file>.png`).
@@ -26,7 +26,7 @@ You visually review scenes rendered with manimgl (the CodingVillainKor fork). **
      ```
    - One sheet covers 18 s. Cell k of sheet m (row order from the top left) is at about 18(m-1) + 0.5k - 0.25 s.
    - For a suspicious moment, extract one more large frame: `ffmpeg -v error -y -ss <sec> -i "$V/<Scene>.mp4" -frames:v 1 "$d/<Scene>_t<sec>.png"`.
-   - For two consecutive scenes, compare the last frame of the first with the first frame (`-ss 0`) of the next. Look for objects that suddenly disappear or appear at the cut.
+   - For two consecutive scenes, compare the last frame of the first with the first frame (`-ss 0`) of the next. Look for objects that suddenly disappear or appear at the cut. Judge the cut against the earlier scene's **Next** line.
    - When the review is done, delete the temp folder with `rm -rf "$d"`.
 3. Check the following.
    - Objects overlapping each other, including text crossing a line or shape
@@ -36,9 +36,16 @@ You visually review scenes rendered with manimgl (the CodingVillainKor fork). **
    - Text too small to read at 1080p. Judge from `<Scene>.png`, which is 1920x1080. A pixel height measured on an 854x480 draft frame times 2.25 gives the 1080p value
    - Spans where text overlaps during a transition and cannot be read. Report it if it lasts 0.5 s or more
    - Objects that should have been removed but remain, and objects that suddenly appear or disappear
-   - Colors that differ from the intent. In the fork, the constructor `color=` is ignored on `Text/Tex/TexText/Dot/Brace` (white) and on `Arrow/Vector/StrokeArrow` (gray), and `Circle/Ellipse` have a red outline. `.set_color()` must be used
+   - Colors that differ from the intent. In the fork, the constructor `color=` is ignored on `Text/Tex/TexText/Dot/Brace` (white) and on `Arrow/Vector/StrokeArrow` (gray), `Annulus/Sector` get a gray fill, `Circle/Ellipse` a red outline and `Cross` is red (best-practices §6). `.set_color()` must be used
    - A gray fill appears on a shape where only the outline was meant to be dimmed (`set_opacity` also raises the fill)
    - Tex is empty or broken. It may be a LaTeX or cm-super problem
+   - Equation steps that stack: after a transform the previous line stays on screen next to the new one. Usually a `.copy()` passed to `TransformMatchingTex`/`Transform` (best-practices §8); fine only if scenes.md asks for a stacked derivation
+   - Text with a thick halo in its own color: `set_color` after `set_backstroke` (best-practices §6)
+   - An object that shrinks toward a point or bulges mid-rotation and then snaps back: `.animate.rotate` of 90° or more, or a `path_arc` whose axis differs from the rotation axis → `Rotate(mob, θ, axis=...)` (best-practices §11)
+   - An object that keeps turning (or a number that keeps changing) after its step should have ended, then jumps at the next animation or ends the scene at the wrong angle: a `Rotate`/`UpdateFromAlphaFunc`/`ChangeDecimalToValue` shorter than the rest of its play. The `-sw` PNG looks right, so judge from the frame sheet → give it the play's `run_time` or `time_span=(0, 1)` (best-practices §11)
+   - A planned step that never shows: the object stays hidden or still, then does two steps at once. Usually `LaggedStart(..., lag_ratio=1)` or two `.animate` on the same mobject in one play (best-practices §11)
+   - An object that pops in whole on the first frame instead of being drawn or faded in: an updater (`always_redraw`, `become`) running during the animation (best-practices §10)
+   - 3D scenes: an object inside or behind a translucent surface is missing entirely (it was added after the surface, best-practices §9). A planned camera orbit that does not move, or turns the other way (`.animate` takes the short way round, korean-tex-3d.md §C8)
    - 3D scenes: arrows or labels line up with an axis on screen while the camera orbits. Flicker (z-fighting) or overlapping patterns on objects in the same plane or on the same line. A line passing through a label, or a label going behind a curved surface or filled shape (depth test)
 
 ## Output
