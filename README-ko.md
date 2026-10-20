@@ -11,11 +11,12 @@
 ## 설치
 
 ```
-/plugin marketplace add ./manimgl-skill
+/plugin marketplace add getCurrentThread/manimgl-skill
 /plugin install manimgl-skill@manimgl-skill
 ```
 
-- `./manimgl-skill`은 로컬 클론이다. GitHub에서는 `/plugin marketplace add getCurrentThread/manimgl-skill`이다. 셸에서는 `claude plugin marketplace add ./manimgl-skill`, `claude plugin install manimgl-skill@manimgl-skill`이다.
+- 셸에서는 `claude plugin marketplace add getCurrentThread/manimgl-skill`, `claude plugin install manimgl-skill@manimgl-skill`이다.
+- 로컬 클론을 쓰려면 `git clone https://github.com/getCurrentThread/manimgl-skill.git`으로 받은 뒤 `/plugin marketplace add <클론 경로>`를 실행한다. `./manimgl-skill` 같은 상대 경로는 Claude Code를 시작한 폴더 기준으로 해석되어 고정 디렉터리로 등록되므로, 클론을 옮기거나 지우면 `Marketplace file not found at ...\.claude-plugin\marketplace.json` 오류가 난다. 이때는 `/plugin marketplace remove manimgl-skill` 후 다시 추가한다.
 - 플러그인 명령에는 네임스페이스가 붙으므로 명령은 **`/manimgl-skill:scene`** 형태가 된다.
 - 마켓플레이스와 플러그인 이름은 둘 다 `manimgl-skill`이다. `.claude-plugin/*.json`의 `owner`/`author`는 자리표시자(`manimgl-skill maintainers`)이며 공개할 때 바꾼다.
 

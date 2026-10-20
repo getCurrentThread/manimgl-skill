@@ -11,11 +11,12 @@ A Claude Code plugin for the [CodingVillainKor/manimgl](https://github.com/Codin
 ## Installation
 
 ```
-/plugin marketplace add ./manimgl-skill
+/plugin marketplace add getCurrentThread/manimgl-skill
 /plugin install manimgl-skill@manimgl-skill
 ```
 
-- `./manimgl-skill` is a local clone. From GitHub: `/plugin marketplace add getCurrentThread/manimgl-skill`. From a shell: `claude plugin marketplace add ./manimgl-skill`, then `claude plugin install manimgl-skill@manimgl-skill`.
+- From a shell: `claude plugin marketplace add getCurrentThread/manimgl-skill`, then `claude plugin install manimgl-skill@manimgl-skill`.
+- From a local clone: `git clone https://github.com/getCurrentThread/manimgl-skill.git`, then `/plugin marketplace add <path to the clone>`. A relative path such as `./manimgl-skill` is resolved against the folder Claude Code was started in and registered as a fixed directory, so it breaks if the clone is moved or deleted (`Marketplace file not found at ...\.claude-plugin\marketplace.json`). If that happens: `/plugin marketplace remove manimgl-skill`, then add it again.
 - Plugin commands are namespaced, so the command is **`/manimgl-skill:scene`**.
 - The marketplace and the plugin are both named `manimgl-skill`; `owner`/`author` in `.claude-plugin/*.json` are placeholders (`manimgl-skill maintainers`), to be replaced on publishing.
 
