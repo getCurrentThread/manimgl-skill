@@ -5,14 +5,14 @@
   },
   "metadata": {
     "description": "manimgl (CodingVillainKor fork) skills for Claude Code",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "plugins": [
     {
       "name": "manimgl-skill",
       "source": "./",
       "description": "Fork-verified manimgl best practices, examples and gallery, Plan → Code & Render → Iterate workflow with optional narration, local viewer, scene reviewer, uv setup script and a warn-only lint hook.",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "category": "video",
       "keywords": ["manimgl", "manim", "animation", "korean", "video"]
     }

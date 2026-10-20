@@ -43,8 +43,14 @@ uv run python <tools folder>/video_viewer.py full.mp4 --order concat.txt [--scri
 8. `ui.html` adds `[hidden] { display: none !important; }`. In the original, `.btn { display: flex }` overrode the CC button's `hidden` attribute, so the button showed even when there were no subtitles.
 9. All other logic (port, chapters, SRT concatenation) is the same as the original.
 
+## `tts.py` engine `gemini`
+
+- Added `--engine gemini` with `--voice` (default `Charon`), `--model`, `--key-env`, `--batch K` and `--selftest`; `--say FROM=TO` works for every engine. Details: [../references/voiceover.md](../references/voiceover.md) §3.
+- The Gemini request, retry and quota handling, batch-and-split with its position gate, and the offline selftest are ported from a working project (verified there on 2026-10-20; the live call path was not run in this repo, only its mocked copy in `--selftest`). `google-genai` is imported only for this engine.
+- `sapi`/`edge` cache keys and outputs are unchanged. `--say` text changes the TTS input and the cache key only; `timestamps.json` keeps the original line.
+
 ## Adapted from `tts-generate.py` (in `tts.py`)
 
 - Taken: the cache key as a sha256 of the synthesis inputs, durations measured with ffprobe, the per-line cache-hit loop, and the idea of a `timestamps.json` that the scene code reads.
-- Changed: per-scene `[Scene]` groups instead of one `subtitles:` list; engines `sapi` (local, Windows) and `edge` (network, opt-in) instead of Kokoro, which has no Korean; `encoding="utf-8"` reads; clips written as `.part` and renamed on success.
+- Changed: per-scene `[Scene]` groups instead of one `subtitles:` list; engines `sapi` (local, Windows), `edge` (network, opt-in) and `gemini` (network, opt-in) instead of Kokoro, which has no Korean; `encoding="utf-8"` reads; clips written as `.part` and renamed on success.
 - Not taken: the Kokoro pipeline, the single concatenated `voiceover.mp3` (`voiceover.py` adds one clip at a time per scene instead, because a global track drifts in the fork), `--bust`.

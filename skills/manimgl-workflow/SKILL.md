@@ -14,6 +14,12 @@ Before writing code, follow the **manimgl-best-practices** skill. Fork API, colo
 - **No coding before approval**: do not write `main.py` until the user approves the Plan.
 - **Commit baseline**: this workflow was tuned against exactly one fork commit, @455a4201. When setup.sh adds the fork fresh, it pins to this commit. If the fork is already on another commit, it does not change the commit and only warns (it only adds the missing `trimesh`/`pywavefront`).
 
+## Team mode (optional)
+
+- Only when the user asks for subagents or team mode; it spawns many agents and costs many tokens. Otherwise ignore this section.
+- The main session leads: it plans, writes briefs and `handoff.md`, and judges every report by Reading the frame itself. Sub-agents (non-fork, explicit model override) write and render one act file each. Reviewers are `manimgl-skill:scene-reviewer`.
+- Roles, file ownership, phase gates, the viewer feedback loop, brief checklist and `handoff.md`: `${CLAUDE_SKILL_DIR}/references/team-production.md`.
+
 ## 0. Setup (once per project)
 
 - The project is a uv project root containing `pyproject.toml`. If the fork is not there yet, install it.
@@ -63,7 +69,8 @@ Silent videos are the default. Details, evidence and pitfalls: `${CLAUDE_SKILL_D
    uv run python ${CLAUDE_SKILL_DIR}/tools/tts.py     # sapi: local, Windows only
    ```
    - `--engine edge` sends every line to Microsoft's online TTS service. Use it only if the user chose it, and run `uv add edge-tts` only with their consent.
-   - No macOS/Linux engine is shipped (not verified). If tts.py exits listing voices without a Korean one, report that list.
+   - `uv run python ${CLAUDE_SKILL_DIR}/tools/tts.py --engine gemini [--voice Charon] [--model gemini-3.8-flash-tts] [--key-env GEMINI_API_KEY] [--batch K] [--say FROM=TO ...]` is a network engine: it sends every new line to Google. Use it only if the user chose it, and run `uv add google-genai` only with their consent. The key is read only from the env var named by `--key-env`, only when an uncached line exists, and is never printed. `--batch K` (gemini only; K>1 with another engine exits 2) sends K uncached lines per request, split at silences (saves free-tier daily request limits); on `[SPLIT-FAIL]` rerun with a smaller K. `--say FROM=TO` (any engine) fixes a pronunciation in the TTS input only; subtitles keep the original text, e.g. `--say RAG=래그`.
+   - No local macOS/Linux engine is shipped (not verified); `edge` and `gemini` are network engines that do not need Windows (not run elsewhere). If tts.py exits listing voices without a Korean one, report that list.
 3. `cp ${CLAUDE_SKILL_DIR}/tools/voiceover.py .`, then in `main.py`:
    - First line: `import os, sys; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # manimgl does not put the script folder on sys.path`, then `from voiceover import Narrated`. <!-- snippet: skip needs voiceover.py next to main.py -->
    - **Every** scene is `class X(Narrated, Scene)`, silent ones too, so all mp4s share one audio layout for concat.

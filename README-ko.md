@@ -45,6 +45,8 @@ bash path/to/manimgl-skill/scripts/setup.sh [PROJECT_DIR] [--with-raenimgl] [--s
 
    Claude는 줄마다 `full.mp4`에서 그 시각의 프레임을 뽑아 보고, 지목된 씬만 고쳐 다시 렌더한다. 이어서 `full.mp4`를 다시 만들고 같은 포트로 뷰어를 재시작한다. 고치기 전과 후의 프레임을 비교한 뒤 결과를 알린다. 탭을 새로 고치면 새 버전을 볼 수 있다.
 
+**팀 모드(선택).** 서브에이전트를 쓰라고 요청하면 메인 세션이 총괄하고, 서브에이전트가 막(act) 파일 하나씩 맡아 코딩하고 렌더한다. 검토 에이전트와 단계별 관문이 붙는다. 토큰을 많이 쓴다. [references/team-production.md](skills/manimgl-workflow/references/team-production.md)를 본다.
+
 ## 포크에서 검증한 규칙
 
 `skills/manimgl-best-practices`는 `/manimgl-skill:scene` 안팎을 가리지 않고 모든 `from manimlib import *` 코드에 적용된다. 포크에서 실패하거나 다르게 동작하는 ManimCE·upstream 습관(`Create`, `MathTex`, `-ql`/`-p`, `Succession` 등), 여러 클래스가 조용히 무시하는 생성자 `color=`, 포크에 없는 색 이름, `Scene.__init__`이 덮어쓰는 모듈 수준 시드, `Text`와 `Tex` 안의 한글, 카메라 궤도, CLI를 다룬다.
@@ -61,8 +63,9 @@ bash path/to/manimgl-skill/scripts/setup.sh [PROJECT_DIR] [--with-raenimgl] [--s
 
 - `tools/tts.py`는 `narration.txt`의 줄마다 클립 하나와 `narration/timestamps.json`을 만들고, 해시로 캐시한다. 기본 엔진은 Windows SAPI이고, 로컬 한국어 음성 Microsoft Heami Desktop을 쓴다.
 - `--engine edge`는 edge-tts를 쓰며 모든 줄을 Microsoft 온라인 서비스로 보낸다. Claude는 사용자가 이 엔진을 고른 경우에만 쓴다.
+- `--engine gemini`는 Google Gemini TTS를 쓴다(`google-genai`와, `--key-env`로 지정한 환경 변수(기본 `GEMINI_API_KEY`)의 키가 필요하다). 새 줄을 모두 Google로 보내므로 Claude는 사용자가 이 엔진을 고른 경우에만 쓴다. `--batch K`(gemini 전용)는 캐시에 없는 줄을 요청 하나에 K줄씩 묶고, `--say FROM=TO`(모든 엔진)는 자막은 그대로 두고 발음만 고친다.
 - `tools/voiceover.py`는 `Narrated` 믹스인을 더한다. `with self.voice(k):`가 k번째 줄을 재생하고, `-w` 렌더마다 오디오 트랙과 씬별 `.srt`가 생긴다. 뷰어는 이 `.srt`들을 이어 자막으로 보여 준다.
-- macOS나 Linux용 엔진은 제공하지 않는다. 자세한 내용: [references/voiceover.md](skills/manimgl-workflow/references/voiceover.md).
+- 로컬 엔진은 `sapi`(Windows 전용)이고, 네트워크 엔진은 `edge`와 `gemini`다. 네트워크 엔진은 Windows가 필요 없지만 macOS나 Linux에서는 돌려 보지 않았다. 자세한 내용: [references/voiceover.md](skills/manimgl-workflow/references/voiceover.md).
 
 ## 린트 훅과 점검
 

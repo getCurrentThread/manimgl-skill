@@ -45,6 +45,8 @@ In an empty folder, run `/manimgl-skill:scene <topic>`, for example `/manimgl-sk
 
    For each line, Claude extracts that second of `full.mp4`, fixes only the named scene, re-renders it, rebuilds `full.mp4` and restarts the viewer on the same port. It compares the frames from before and after the fix, then reports back. Refresh the tab to watch the new version.
 
+**Team mode (opt-in).** If you ask for subagents, the main session leads and sub-agents write and render one act file each, with reviewers and phase gates. It costs many tokens. See [references/team-production.md](skills/manimgl-workflow/references/team-production.md).
+
 ## Fork-verified rules
 
 `skills/manimgl-best-practices` applies to any `from manimlib import *` code, inside or outside `/manimgl-skill:scene`. It covers ManimCE and upstream habits that fail or misbehave on the fork (`Create`, `MathTex`, `-ql`/`-p`, `Succession`, ...), constructor `color=` that many classes silently ignore, color names the fork lacks, module-level seeds that `Scene.__init__` overrides, Korean in `Text` and `Tex`, camera orbits, and the CLI.
@@ -61,8 +63,9 @@ Videos are silent unless you ask for narration (`Narration: voiceover` in scenes
 
 - `tools/tts.py` turns `narration.txt` into one clip per line plus `narration/timestamps.json`, cached by hash. The default engine is Windows SAPI with the local Korean voice Microsoft Heami Desktop.
 - `--engine edge` uses edge-tts, which sends every line to Microsoft's online service. Claude uses it only if you choose it.
+- `--engine gemini` uses Google's Gemini TTS (needs `google-genai` and a key in the env var named by `--key-env`, default `GEMINI_API_KEY`). It sends every new line to Google, so Claude uses it only if you choose it. `--batch K` (gemini only) groups K uncached lines per request; `--say FROM=TO` (any engine) fixes a pronunciation without changing the subtitles.
 - `tools/voiceover.py` adds a `Narrated` mixin: `with self.voice(k):` plays line k, and each `-w` render gets an audio track and a per-scene `.srt` that the viewer joins into subtitles.
-- No macOS or Linux engine is shipped. Details: [references/voiceover.md](skills/manimgl-workflow/references/voiceover.md).
+- Local engine: `sapi`, Windows only. Network engines: `edge`, `gemini`; they do not need Windows but were not run on macOS or Linux. Details: [references/voiceover.md](skills/manimgl-workflow/references/voiceover.md).
 
 ## Lint hook and checks
 

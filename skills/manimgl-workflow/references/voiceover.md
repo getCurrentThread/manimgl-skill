@@ -24,6 +24,7 @@
 2. Synthesize. It prints each line's length; read these budgets before writing `construct`.
    ```bash
    uv run python ${CLAUDE_SKILL_DIR}/tools/tts.py             # sapi, local
+   uv run python ${CLAUDE_SKILL_DIR}/tools/tts.py --engine gemini [--batch 5] [--say RAG=래그]   # NETWORK, §3
    ```
 3. Copy the helper and write the header.
    ```bash
@@ -61,10 +62,20 @@
 |---|---|---|---|---|
 | `sapi` (default) | Local. Windows `System.Speech` through PowerShell. Text passes in a UTF-8 JSON file, not the command line | `Microsoft Heami Desktop` (ko-KR) | wav, 22050 Hz mono | [verified by run]. 10, 16 and 17 syllables = 2.629, 3.794, 4.209 s: about 5-6 syllables/s of speech plus about 0.13 s of leading and 0.74 s of trailing silence per clip, so about 4 syllables/s overall |
 | `edge` | **Network.** `edge-tts` sends every new or changed line to Microsoft's online TTS service. Only with `--engine edge`, and installed only when the user agrees: `uv add edge-tts` | `ko-KR-SunHiNeural` | mp3, 24 kHz mono | [verified by run] with one fixed sample sentence only (4.104 s; ffprobe length = decoded length). Korean voices listed: `ko-KR-HyunsuMultilingualNeural`, `ko-KR-InJoonNeural`, `ko-KR-SunHiNeural` |
+| `gemini` | **Network.** Sends every new or changed line to Google's Gemini API. Only with `--engine gemini`, after the user agrees to the network use, the API key and the quota; the SDK is installed only with consent: `uv add google-genai` | `Charon` (`--voice`), model `gemini-3.8-flash-tts` (`--model`) | wav, 24 kHz mono, 0.2 s of silence added to both ends | Korean verified in a real project (2026-10-20: 30 lines, single and `--batch` requests). **The call path in this repo (`request()`, retries, the client) has not been exercised live**; the offline selftest mocks it |
 
 - Missing voice: `sapi` exits listing the installed voices (`--voice "<name>"` picks one). Without a Korean voice, the Korean text-to-speech feature of Windows must be added (that install path was not run). An unknown or malformed `edge` voice exits listing the ko-KR voices [verified by run with `ko-KR-NopeNeural`; malformed names such as `SunHi` raise `ValueError` in edge-tts 7.3.1, verified offline with the voice list stubbed].
 - Cache: `narration/<sha256(engine, voice, text)[:16]>.<ext>`. A rerun synthesizes only new or changed lines. Clips are written as `.part` and renamed on success, so a failed run leaves no half clip [verified by run]. A line of only punctuation (`- …`, `- ...`, `- ?`) gives a SAPI clip with no samples: the run stops naming that line and does not cache it [verified by run]. Old clips are not deleted.
-- `timestamps.json`: `{Scene: [{k, text, file, duration_s}]}`, durations from ffprobe.
+- `timestamps.json`: `{Scene: [{k, text, file, duration_s}]}`, durations from ffprobe. `text` is the line of `narration.txt` and is what `voiceover.py` writes into the SRT; `--say` never changes it.
+
+### `gemini` in practice
+
+- **Key**: an environment variable only (`--key-env`, default `GEMINI_API_KEY`; the option takes the variable's name, never the key). It is read only when a line is not cached, so a fully cached rerun needs no key. The key is never printed or written, and `--key-env` rejects a value that looks like a key (`AIza...`, over 40 characters, or not a variable name) without echoing it. Set it for the session yourself; do not paste it into chat or files.
+- **Style**: a fixed annotation, `calm, clear Korean lecture narration, moderate pace`. Model and style are part of the cache key, so changing `--model` re-synthesizes everything; `sapi`/`edge` keys are unchanged, so existing projects still hit their cache.
+- **`--say FROM=TO`** (repeatable, any engine): replaces text in what the engine speaks, for pronunciation (`--say RAG=래그`). It is part of the cache key. `narration.txt` and the subtitles keep the original text. Pass the same `--say` flags on every run, or the lines are synthesized again.
+- **`--batch K`** (gemini only, default 1): K uncached lines per request, joined with ` <long pause> `, cut again at silences. This saves requests when the daily quota is the limit. A cut is accepted only if the silence is 0.5 s or longer and within 2 s of where the character counts predict it, and every piece must run 3.5-6.5 Hangul syllables/s. Otherwise it prints `[SPLIT-FAIL] ... rerun with a smaller --batch`, writes none of that group's clips (the other groups' clips stay cached), and exits 1. The paid reply of a failed batch is kept in `narration/batches/` for inspection (successful batches leave nothing there). Each `[CUT]` line shows the cut time and silence length. A batch is a new take: its prosody differs a little from a single request.
+- **Quota and errors**: 429 is retried (3 attempts, waiting 10 s and 30 s) and 5xx too (2 s and 6 s), except a daily quota ("per day"), which exits 1 at once with the line and the API's last error line. Any other error, or a reply that is not a WAV (`[FAIL] ... reply is not a WAV`), also exits at once. Clips already made stay cached; rerun after the quota resets.
+- **Offline check**: `uv run python ${CLAUDE_SKILL_DIR}/tools/tts.py --selftest` (split, gates, `--say`, cache keys, retry policy; mocked requests; needs ffprobe).
 - Not shipped, because they were not verified: macOS `say`, any Linux engine, Kokoro (no Korean language code; an unknown voice prefix falls back to American English), MeloTTS/XTTS (torch-pinned or non-commercial weights). Voice quality was not judged by ear.
 
 ## 4. Fork sound facts and concat pitfalls

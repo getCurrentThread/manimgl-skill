@@ -11,8 +11,8 @@
 | `skills/manimgl-best-practices/` | 작성 규칙(SKILL.md), 렌더 확인된 예제(`examples/*.py`) |
 | `skills/manimgl-best-practices/references/` | 근거 문서: CLI와 출력, 포크와 upstream 차이(다른 manim 버전 코드가 깨지는 경우 포함), imcommit 패턴, 한글/Tex/3D(카메라 궤도 §C8 포함), 애니메이션 의미, 스타일과 색, 대화형 셸, raenimgl, API 목록 |
 | `skills/manimgl-best-practices/gallery/` | ML·수학 주제용으로 옮겨 온 씬 파일 9개(씬 17개)와 자체 `README.md`, `LICENSE.txt`. **CC BY-NC-SA 4.0**이다 (출처와 라이선스 참고) |
-| `skills/manimgl-workflow/` | Plan → Code & Render → Iterate 워크플로, `templates/scenes.md`(작성 예시 `templates/scenes-example.md`), 기획 참고 문서 `references/`(내러티브 패턴, 포크 검증 시각 기법, 내레이션) |
-| `skills/manimgl-workflow/tools/` | 로컬 뷰어(`video_viewer.py`, `ui.html`). 선택 기능인 내레이션: `tts.py`(narration.txt → 음성 클립 + `timestamps.json`), `voiceover.py`(`Narrated` 믹스인: 오디오와 씬별 SRT) |
+| `skills/manimgl-workflow/` | Plan → Code & Render → Iterate 워크플로, `templates/scenes.md`(작성 예시 `templates/scenes-example.md`), 기획 참고 문서 `references/`(내러티브 패턴, 포크 검증 시각 기법, 내레이션, 선택 기능인 팀 모드 `team-production.md`) |
+| `skills/manimgl-workflow/tools/` | 로컬 뷰어(`video_viewer.py`, `ui.html`). 선택 기능인 내레이션: `tts.py`(narration.txt → 음성 클립 + `timestamps.json`, 엔진 sapi·edge·gemini), `voiceover.py`(`Narrated` 믹스인: 오디오와 씬별 SRT) |
 | `commands/scene.md` | `/manimgl-skill:scene <topic>`로 워크플로를 시작한다 |
 | `agents/scene-reviewer.md` | 렌더된 프레임을 읽기 전용으로 검토하는 에이전트 |
 | `hooks/hooks.json` | Claude가 manimgl `.py` 파일을 쓰거나 고치면 린트를 돌려 결과를 Claude에게 전한다 (경고만) |
@@ -247,7 +247,7 @@ adithya-s-k/manim_skill에서 쓴 것:
 - 최종 1920x1080 `-w` 렌더로 영상 전체를 만드는 것. E2E는 `-w -l`까지만 했다. 예제, 갤러리, 스모크 렌더는 1080p PNG와 480p mp4다.
 - 새 Plan 항목(Hook, Aha moment, Next, Assumptions)과 질문 3개 제한 단계는 에이전트 E2E로 돌려 보지 않았다.
 - `--autoreload`, `embed.exception_mode` 값, InteractiveScene 선택/잡기 키(Ctrl+C/V/X, `g`/`h`/`v`/`z`), Esc, cp949에서 `custom_config.yml` 읽기(`encoding=` 없이 연다).
-- 내레이션: macOS/Linux의 TTS 엔진(제공하지 않음), 한국어 음성이 없는 Windows에 음성 설치, 귀로 들은 음성 품질, 한 문장을 넘는 `edge-tts`, cp949 로캘의 내레이션, 내레이션과 `--subdivide`.
+- 내레이션: macOS/Linux의 로컬 TTS 엔진(제공하지 않음, 네트워크 엔진 `edge`와 `gemini`도 거기서는 돌려 보지 않았다), 팀 모드(`references/team-production.md`는 멀티 에이전트로 영상 하나를 만든 과정을 옮긴 것이고 처음부터 다시 돌려 보지는 않았다), 한국어 음성이 없는 Windows에 음성 설치, 귀로 들은 음성 품질, 한 문장을 넘는 `edge-tts`, cp949 로캘의 내레이션, 내레이션과 `--subdivide`.
 - adithya-s-k/manim_skill 예제를 upstream에서 렌더하는 것. 각 행이 upstream에서도 똑같이 실패하는지는 소스로만 판단했고, 인용한 줄 일부는 upstream과 다르다 (fork-diff.md, "Upstream/PyPI-era code that breaks on the fork").
 - macOS와 Linux에서의 점검. `check_examples.sh`, `check_docs.py`, 훅 명령은 Windows Git Bash에서만 돌렸다.
 - PowerShell에서의 훅(Git Bash 없는 Windows의 Claude Code)과 Windows 스토어 `python3` 별칭 스텁. 이 머신에는 실제 `python3`가 있다. 명령은 `python`으로 넘어가게 돼 있다.

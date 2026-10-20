@@ -11,8 +11,8 @@ Moved from the [README](../README.md): plugin contents, `setup.sh` internals, ch
 | `skills/manimgl-best-practices/` | Writing rules (SKILL.md), render-verified examples (`examples/*.py`) |
 | `skills/manimgl-best-practices/references/` | Evidence documents: CLI and output, fork vs upstream (incl. code from other manim versions that breaks), imcommit patterns, Korean/Tex/3D (incl. camera orbits, §C8), animation semantics, style and color, interactive shell, raenimgl, API inventory |
 | `skills/manimgl-best-practices/gallery/` | 9 ported scene files for ML and math topics (17 scenes) with their own `README.md` and `LICENSE.txt`. **CC BY-NC-SA 4.0**, see Sources and licenses |
-| `skills/manimgl-workflow/` | Plan → Code & Render → Iterate workflow, `templates/scenes.md` (worked example `templates/scenes-example.md`), planning references `references/` (narrative patterns, fork-verified visual techniques, voiceover) |
-| `skills/manimgl-workflow/tools/` | Local viewer (`video_viewer.py`, `ui.html`). Optional narration: `tts.py` (narration.txt → clips + `timestamps.json`), `voiceover.py` (`Narrated` mixin: audio and per-scene SRT) |
+| `skills/manimgl-workflow/` | Plan → Code & Render → Iterate workflow, `templates/scenes.md` (worked example `templates/scenes-example.md`), planning references `references/` (narrative patterns, fork-verified visual techniques, voiceover, optional team mode `team-production.md`) |
+| `skills/manimgl-workflow/tools/` | Local viewer (`video_viewer.py`, `ui.html`). Optional narration: `tts.py` (narration.txt → clips + `timestamps.json`; engines sapi, edge, gemini), `voiceover.py` (`Narrated` mixin: audio and per-scene SRT) |
 | `commands/scene.md` | `/manimgl-skill:scene <topic>` starts the workflow |
 | `agents/scene-reviewer.md` | Agent that reviews rendered frames, read-only |
 | `hooks/hooks.json` | After Claude writes or edits a manimgl `.py` file, runs the lint and passes the findings to Claude (warn-only) |
@@ -247,7 +247,7 @@ Test environment:
 - Making a whole video with the final 1920x1080 `-w` render. The E2E went only as far as `-w -l`. The example, gallery and smoke renders are 1080p PNGs and 480p mp4s.
 - The new Plan fields (Hook, Aha moment, Next, Assumptions) and the capped question step were not run through an agent E2E.
 - `--autoreload`, `embed.exception_mode` values, the InteractiveScene selection/grab keys (Ctrl+C/V/X, `g`/`h`/`v`/`z`), Esc, and reading `custom_config.yml` under cp949 (it is opened without `encoding=`).
-- Narration: TTS engines on macOS/Linux (none shipped), installing the Windows Korean voice on a machine without it, voice quality by ear, `edge-tts` beyond one sentence, narration on a cp949 locale, `--subdivide` with narration.
+- Narration: local TTS engines on macOS/Linux (none shipped; the network engines `edge` and `gemini` were not run there), team mode (`references/team-production.md` is a write-up of one multi-agent production; no clean-room re-run), installing the Windows Korean voice on a machine without it, voice quality by ear, `edge-tts` beyond one sentence, narration on a cp949 locale, `--subdivide` with narration.
 - Rendering the adithya-s-k/manim_skill corpus on upstream. Whether each fork-diff.md row fails the same way upstream is judged from source only, and some cited lines differ (fork-diff.md, "Upstream/PyPI-era code that breaks on the fork").
 - The checks on macOS and Linux. `check_examples.sh`, `check_docs.py` and the hook command were run only in Windows Git Bash.
 - The hook under PowerShell (Claude Code on Windows without Git Bash), and with a Windows Store `python3` alias stub. This machine has a real `python3`; the command falls back to `python`.
